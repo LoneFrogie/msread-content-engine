@@ -12,7 +12,7 @@ set -e
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 REGION="asia-southeast1"  # Singapore — closest to Malaysia
 SERVICE_NAME="msread-content-engine"
-GOOGLE_AI_API_KEY="${GOOGLE_AI_API_KEY:-AIzaSyCAK7AsNYktX-eggwtOcLG-nwH-jPAqako}"
+GOOGLE_AI_API_KEY="${GOOGLE_AI_API_KEY:?Error: Set GOOGLE_AI_API_KEY environment variable before deploying}"
 
 if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "(unset)" ]; then
     echo "Error: No GCP project set."

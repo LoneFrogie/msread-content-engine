@@ -36,7 +36,7 @@ TEMPLATE_DIR = Path(__file__).parent / "templates"
 OUTPUT_BASE = Path("/tmp/msread_content_engine")
 OUTPUT_BASE.mkdir(parents=True, exist_ok=True)
 
-GOOGLE_AI_API_KEY = os.getenv("GOOGLE_AI_API_KEY", "AIzaSyCAK7AsNYktX-eggwtOcLG-nwH-jPAqako")
+GOOGLE_AI_API_KEY = os.getenv("GOOGLE_AI_API_KEY", "")
 
 
 # ── Session management ──
