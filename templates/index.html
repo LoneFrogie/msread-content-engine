@@ -13,7 +13,6 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            /* MS. READ brand colors — from msreadshop.com */
             --brand-black: #151515;
             --brand-coral: #f9765b;
             --brand-coral-light: #fca08c;
@@ -68,6 +67,45 @@
             margin-top: 0.6rem;
         }
 
+        /* Mode Tabs */
+        .mode-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--brand-grey);
+        }
+        .mode-tab {
+            flex: 1;
+            text-align: center;
+            padding: 1rem 1.5rem;
+            font-family: 'Jost', sans-serif;
+            font-size: 0.88rem;
+            font-weight: 500;
+            color: var(--brand-dark-grey);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            border: none;
+            background: none;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        .mode-tab:hover { color: var(--brand-black); }
+        .mode-tab.active {
+            color: var(--brand-black);
+            border-bottom-color: var(--brand-coral);
+        }
+        .mode-tab .tab-desc {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 300;
+            color: var(--brand-dark-grey);
+            margin-top: 0.2rem;
+            letter-spacing: 0.5px;
+            text-transform: none;
+        }
+
         /* Card */
         .card {
             background: var(--brand-white);
@@ -87,9 +125,8 @@
         }
 
         /* Form */
-        .brief-input {
+        .brief-input, .url-input {
             width: 100%;
-            min-height: 160px;
             background: var(--brand-offwhite);
             border: 1px solid var(--brand-grey);
             border-radius: 0;
@@ -101,11 +138,29 @@
             line-height: 1.7;
             transition: border-color 0.2s;
         }
-        .brief-input:focus {
+        .brief-input { min-height: 160px; }
+        .url-input { min-height: auto; resize: none; margin-bottom: 1rem; }
+        .brief-input:focus, .url-input:focus {
             outline: none;
             border-color: var(--brand-black);
         }
-        .brief-input::placeholder { color: #999; }
+        .brief-input::placeholder, .url-input::placeholder { color: #999; }
+
+        .form-label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--brand-black);
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .form-hint {
+            font-size: 0.78rem;
+            color: var(--brand-dark-grey);
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+        }
 
         .examples {
             margin-top: 1rem;
@@ -130,7 +185,45 @@
             color: var(--brand-coral);
         }
 
-        /* Buttons — sharp corners like msreadshop.com */
+        /* Product Preview */
+        .product-preview {
+            display: flex;
+            gap: 1.5rem;
+            padding: 1rem;
+            background: var(--brand-offwhite);
+            border: 1px solid var(--brand-grey);
+            margin-bottom: 1rem;
+        }
+        .product-preview img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+        }
+        .product-preview .product-info { flex: 1; }
+        .product-preview .product-name {
+            font-weight: 500;
+            font-size: 1rem;
+            margin-bottom: 0.3rem;
+        }
+        .product-preview .product-price {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--brand-coral);
+        }
+        .product-preview .product-price .compare {
+            text-decoration: line-through;
+            color: var(--brand-dark-grey);
+            font-weight: 300;
+            font-size: 0.9rem;
+            margin-left: 0.5rem;
+        }
+        .product-preview .product-meta {
+            font-size: 0.8rem;
+            color: var(--brand-dark-grey);
+            margin-top: 0.3rem;
+        }
+
+        /* Buttons */
         .btn-primary {
             background: var(--brand-black);
             color: var(--brand-white);
@@ -347,7 +440,7 @@
             flex-wrap: wrap;
         }
 
-        /* Announcement bar — like msreadshop.com */
+        /* Announcement bar */
         .announcement-bar {
             background: var(--brand-peach);
             text-align: center;
@@ -392,6 +485,10 @@
             .container { padding: 1rem; }
             .header h1 { font-size: 1.6rem; letter-spacing: 4px; }
             .image-grid { grid-template-columns: repeat(2, 1fr); }
+            .mode-tab { font-size: 0.75rem; padding: 0.8rem 0.5rem; letter-spacing: 0.8px; }
+            .mode-tab .tab-desc { font-size: 0.65rem; }
+            .product-preview { flex-direction: column; }
+            .product-preview img { width: 100%; height: 200px; }
         }
     </style>
 </head>
@@ -410,10 +507,32 @@ const EXAMPLE_BRIEFS = [
     "Year-end party season. Evening gowns, cocktail dresses, festive outfits. Sparkle, glamour, and holiday celebration vibes for every size.",
 ];
 
+const CALENDAR_PHASES = [
+    { key: "adapting", label: "Adapting" },
+    { key: "building_excel", label: "Excel" },
+    { key: "generating_images", label: "Images" },
+    { key: "embedding", label: "Embed" },
+    { key: "packaging", label: "Package" },
+    { key: "done", label: "Done" },
+];
+
+const SKU_PHASES = [
+    { key: "fetching_product", label: "Fetch" },
+    { key: "generating_content", label: "Content" },
+    { key: "building_excel", label: "Excel" },
+    { key: "generating_images", label: "Images" },
+    { key: "packaging", label: "Package" },
+    { key: "done", label: "Done" },
+];
+
 function App() {
+    const [mode, setMode] = useState("calendar"); // "calendar" | "sku"
     const [view, setView] = useState("input");
     const [brief, setBrief] = useState("");
+    const [productUrl, setProductUrl] = useState("");
+    const [productPreview, setProductPreview] = useState(null);
     const [sessionId, setSessionId] = useState(null);
+    const [activeMode, setActiveMode] = useState("calendar");
     const [events, setEvents] = useState([]);
     const [images, setImages] = useState({});
     const [currentPhase, setCurrentPhase] = useState("");
@@ -428,12 +547,10 @@ function App() {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [events]);
 
-    async function handleGenerate() {
+    // ── Calendar Generation ──
+    async function handleGenerateCalendar() {
         if (!brief.trim()) return;
-        setError(null); setEvents([]); setImages({});
-        setCurrentPhase("adapting");
-        setImageProgress({ current: 0, total: 13 });
-        setStartTime(Date.now()); setEndTime(null);
+        _resetProgress("calendar");
 
         try {
             const res = await fetch("/api/generate", {
@@ -444,46 +561,89 @@ function App() {
             if (!res.ok) { setError((await res.json()).detail || "Failed"); return; }
 
             const { session_id } = await res.json();
-            setSessionId(session_id); setView("progress");
-
-            const es = new EventSource(`/api/progress/${session_id}`);
-            es.onmessage = (e) => {
-                const ev = JSON.parse(e.data);
-                if (ev.type === "stream_end") {
-                    es.close();
-                    if (ev.status === "done") { setEndTime(Date.now()); setView("results"); }
-                    else setError("Generation failed. Check the log.");
-                    return;
-                }
-                setEvents((prev) => [...prev, ev]);
-                if (ev.type === "status" && ev.phase) setCurrentPhase(ev.phase);
-                if (ev.type === "image_start") {
-                    setImageProgress({ current: ev.index, total: ev.total });
-                    setImages((prev) => ({ ...prev, [ev.day]: { status: "generating", theme: ev.theme } }));
-                }
-                if (ev.type === "image_done") {
-                    setImageProgress({ current: ev.index + 1, total: ev.total });
-                    setImages((prev) => ({ ...prev, [ev.day]: { status: ev.success ? "done" : "failed", theme: ev.theme, filename: ev.filename } }));
-                }
-                if (ev.type === "error") setError(ev.message);
-            };
-            es.onerror = () => es.close();
+            setSessionId(session_id);
+            setActiveMode("calendar");
+            setView("progress");
+            _listenToProgress(session_id);
         } catch (err) { setError("Network error: " + err.message); }
     }
 
-    function resetToInput() {
-        setView("input"); setBrief(""); setSessionId(null); setEvents([]); setImages({});
-        setCurrentPhase(""); setError(null); setStartTime(null); setEndTime(null);
+    // ── SKU Generation ──
+    async function handleGenerateSku() {
+        if (!productUrl.trim()) return;
+        _resetProgress("sku");
+
+        try {
+            const res = await fetch("/api/generate-sku", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ product_url: productUrl, creative_brief: brief }),
+            });
+            if (!res.ok) { setError((await res.json()).detail || "Failed"); return; }
+
+            const { session_id } = await res.json();
+            setSessionId(session_id);
+            setActiveMode("sku");
+            setView("progress");
+            _listenToProgress(session_id);
+        } catch (err) { setError("Network error: " + err.message); }
     }
 
-    const phases = [
-        { key: "adapting", label: "Adapting" },
-        { key: "building_excel", label: "Excel" },
-        { key: "generating_images", label: "Images" },
-        { key: "embedding", label: "Embed" },
-        { key: "packaging", label: "Package" },
-        { key: "done", label: "Done" },
-    ];
+    function _resetProgress(m) {
+        setError(null);
+        setEvents([]);
+        setImages({});
+        setCurrentPhase(m === "sku" ? "fetching_product" : "adapting");
+        setImageProgress({ current: 0, total: m === "sku" ? 4 : 13 });
+        setStartTime(Date.now());
+        setEndTime(null);
+        setProductPreview(null);
+    }
+
+    function _listenToProgress(session_id) {
+        const es = new EventSource(`/api/progress/${session_id}`);
+        es.onmessage = (e) => {
+            const ev = JSON.parse(e.data);
+            if (ev.type === "stream_end") {
+                es.close();
+                if (ev.status === "done") { setEndTime(Date.now()); setView("results"); }
+                else setError("Generation failed. Check the log.");
+                return;
+            }
+            setEvents((prev) => [...prev, ev]);
+            if (ev.type === "status" && ev.phase) {
+                setCurrentPhase(ev.phase);
+                // Capture product preview from the fetch phase
+                if (ev.product) setProductPreview(ev.product);
+            }
+            if (ev.type === "image_start") {
+                setImageProgress({ current: ev.index, total: ev.total });
+                setImages((prev) => ({ ...prev, [ev.day]: { status: "generating", theme: ev.theme } }));
+            }
+            if (ev.type === "image_done") {
+                setImageProgress({ current: ev.index + 1, total: ev.total });
+                setImages((prev) => ({ ...prev, [ev.day]: { status: ev.success ? "done" : "failed", theme: ev.theme, filename: ev.filename } }));
+            }
+            if (ev.type === "error") setError(ev.message);
+        };
+        es.onerror = () => es.close();
+    }
+
+    function resetToInput() {
+        setView("input");
+        setBrief("");
+        setProductUrl("");
+        setProductPreview(null);
+        setSessionId(null);
+        setEvents([]);
+        setImages({});
+        setCurrentPhase("");
+        setError(null);
+        setStartTime(null);
+        setEndTime(null);
+    }
+
+    const phases = activeMode === "sku" ? SKU_PHASES : CALENDAR_PHASES;
     const phaseOrder = phases.map(p => p.key);
     const currentPhaseIdx = phaseOrder.indexOf(currentPhase);
 
@@ -491,9 +651,17 @@ function App() {
         if (currentPhase === "done") return 100;
         if (currentPhase === "packaging") return 95;
         if (currentPhase === "embedding") return 90;
-        if (currentPhase === "generating_images")
-            return 20 + (imageProgress.current / Math.max(imageProgress.total, 1)) * 70;
-        if (currentPhase === "building_excel" || currentPhase === "excel_done") return 18;
+        if (currentPhase === "generating_images") {
+            const base = activeMode === "sku" ? 50 : 20;
+            const range = activeMode === "sku" ? 40 : 70;
+            return base + (imageProgress.current / Math.max(imageProgress.total, 1)) * range;
+        }
+        if (currentPhase === "building_excel" || currentPhase === "excel_done")
+            return activeMode === "sku" ? 40 : 18;
+        if (currentPhase === "content_generated" || currentPhase === "generating_content")
+            return activeMode === "sku" ? 25 : 0;
+        if (currentPhase === "product_fetched" || currentPhase === "fetching_product")
+            return activeMode === "sku" ? 10 : 0;
         if (currentPhase === "adapted" || currentPhase === "adapting") return 8;
         return 0;
     })();
@@ -506,7 +674,7 @@ function App() {
             <div className="header">
                 <h1>MS. READ</h1>
                 <div className="tagline">Fashion That Fits Your Confidence</div>
-                <div className="subtitle">30-Day Content Engine</div>
+                <div className="subtitle">AI-Powered Content Engine</div>
             </div>
 
             {error && (
@@ -517,46 +685,130 @@ function App() {
 
             {view === "input" && (
                 <>
-                    <div className="card">
-                        <h2>Creative Direction</h2>
-                        <p style={{ color: "var(--brand-dark-grey)", fontSize: "0.88rem", marginBottom: "1rem", lineHeight: 1.6 }}>
-                            Describe your campaign focus &mdash; products, themes, seasonal events, or goals. The engine will adapt all 30 days of content, blog, captions, and images to match.
-                        </p>
-                        <textarea
-                            className="brief-input"
-                            placeholder={"Example: Focus on our Raya collection launch. Highlight modest fashion pieces \u2014 baju kurung, flowing maxi dresses, hijab-friendly designs in pastel and jewel tones. Campaign goal: drive pre-orders and in-store visits during Ramadan."}
-                            value={brief}
-                            onChange={(e) => setBrief(e.target.value)}
-                        />
-                        <div className="examples">
-                            {EXAMPLE_BRIEFS.map((ex, i) => (
-                                <button key={i} className="example-chip" onClick={() => setBrief(ex)}>
-                                    {ex.slice(0, 42)}...
-                                </button>
-                            ))}
-                        </div>
-                        <button className="btn-primary" onClick={handleGenerate} disabled={!brief.trim()}>
-                            Generate Content Engine
+                    {/* Mode Tabs */}
+                    <div className="mode-tabs">
+                        <button className={`mode-tab ${mode === "calendar" ? "active" : ""}`} onClick={() => setMode("calendar")}>
+                            30-Day Content Calendar
+                            <span className="tab-desc">Full month of posts, blog, images & captions</span>
+                        </button>
+                        <button className={`mode-tab ${mode === "sku" ? "active" : ""}`} onClick={() => setMode("sku")}>
+                            SKU Product Content
+                            <span className="tab-desc">Blog, social, descriptions & email for one product</span>
                         </button>
                     </div>
 
-                    <div className="card">
-                        <h2>What You'll Get</h2>
-                        <div className="results-summary">
-                            <div className="stat-card"><div className="value">6</div><div className="label">Excel Sheets</div></div>
-                            <div className="stat-card"><div className="value">30</div><div className="label">Days of Content</div></div>
-                            <div className="stat-card"><div className="value">13</div><div className="label">AI Images</div></div>
-                            <div className="stat-card"><div className="value">1</div><div className="label">SEO Blog Post</div></div>
-                            <div className="stat-card"><div className="value">4</div><div className="label">FB Captions</div></div>
-                        </div>
-                    </div>
+                    {/* ── CALENDAR MODE ── */}
+                    {mode === "calendar" && (
+                        <>
+                            <div className="card">
+                                <h2>Creative Direction</h2>
+                                <p className="form-hint">
+                                    Describe your campaign focus &mdash; products, themes, seasonal events, or goals. The engine will adapt all 30 days of content, blog, captions, and images to match.
+                                </p>
+                                <textarea
+                                    className="brief-input"
+                                    placeholder={"Example: Focus on our Raya collection launch. Highlight modest fashion pieces \u2014 baju kurung, flowing maxi dresses, hijab-friendly designs in pastel and jewel tones. Campaign goal: drive pre-orders and in-store visits during Ramadan."}
+                                    value={brief}
+                                    onChange={(e) => setBrief(e.target.value)}
+                                />
+                                <div className="examples">
+                                    {EXAMPLE_BRIEFS.map((ex, i) => (
+                                        <button key={i} className="example-chip" onClick={() => setBrief(ex)}>
+                                            {ex.slice(0, 42)}...
+                                        </button>
+                                    ))}
+                                </div>
+                                <button className="btn-primary" onClick={handleGenerateCalendar} disabled={!brief.trim()}>
+                                    Generate 30-Day Calendar
+                                </button>
+                            </div>
+
+                            <div className="card">
+                                <h2>What You'll Get</h2>
+                                <div className="results-summary">
+                                    <div className="stat-card"><div className="value">6</div><div className="label">Excel Sheets</div></div>
+                                    <div className="stat-card"><div className="value">30</div><div className="label">Days of Content</div></div>
+                                    <div className="stat-card"><div className="value">13</div><div className="label">AI Images</div></div>
+                                    <div className="stat-card"><div className="value">1</div><div className="label">SEO Blog Post</div></div>
+                                    <div className="stat-card"><div className="value">4</div><div className="label">FB Captions</div></div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* ── SKU MODE ── */}
+                    {mode === "sku" && (
+                        <>
+                            <div className="card">
+                                <h2>Product URL</h2>
+                                <p className="form-hint">
+                                    Paste a product link from <strong>msreadshop.com</strong>. The engine will fetch the product details and generate a complete content pack.
+                                </p>
+                                <label className="form-label">Product Link</label>
+                                <input
+                                    type="url"
+                                    className="url-input"
+                                    placeholder="https://www.msreadshop.com/products/your-product-handle"
+                                    value={productUrl}
+                                    onChange={(e) => setProductUrl(e.target.value)}
+                                />
+
+                                <label className="form-label" style={{ marginTop: "1rem" }}>Creative Direction (Optional)</label>
+                                <p className="form-hint">
+                                    Add any specific angle, campaign theme, or tone you want the content to follow.
+                                </p>
+                                <textarea
+                                    className="brief-input"
+                                    style={{ minHeight: "100px" }}
+                                    placeholder="Example: Position this as part of our Hari Raya campaign. Emphasise the festive elegance and size-inclusive fit. Target working moms aged 30-45."
+                                    value={brief}
+                                    onChange={(e) => setBrief(e.target.value)}
+                                />
+                                <button className="btn-primary" onClick={handleGenerateSku} disabled={!productUrl.trim()}>
+                                    Generate Product Content
+                                </button>
+                            </div>
+
+                            <div className="card">
+                                <h2>What You'll Get</h2>
+                                <div className="results-summary">
+                                    <div className="stat-card"><div className="value">1</div><div className="label">SEO Blog Post</div></div>
+                                    <div className="stat-card"><div className="value">6</div><div className="label">Social Posts</div></div>
+                                    <div className="stat-card"><div className="value">4</div><div className="label">Product Descriptions</div></div>
+                                    <div className="stat-card"><div className="value">1</div><div className="label">Email Campaign</div></div>
+                                    <div className="stat-card"><div className="value">4</div><div className="label">AI Images</div></div>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </>
             )}
 
+            {/* ── PROGRESS VIEW ── */}
             {view === "progress" && (
                 <>
                     <div className="card">
-                        <h2>Generating Your Content Pack</h2>
+                        <h2>{activeMode === "sku" ? "Generating Product Content" : "Generating Your Content Pack"}</h2>
+
+                        {/* Product preview (SKU mode) */}
+                        {productPreview && (
+                            <div className="product-preview">
+                                {productPreview.image_url && <img src={productPreview.image_url} alt={productPreview.title} />}
+                                <div className="product-info">
+                                    <div className="product-name">{productPreview.title}</div>
+                                    <div className="product-price">
+                                        RM{productPreview.price}
+                                        {productPreview.compare_price && <span className="compare">RM{productPreview.compare_price}</span>}
+                                    </div>
+                                    <div className="product-meta">
+                                        {productPreview.product_type && <span>{productPreview.product_type} &bull; </span>}
+                                        {productPreview.sizes && <span>Sizes: {productPreview.sizes.join(", ")} &bull; </span>}
+                                        {productPreview.colors && <span>{productPreview.colors.join(", ")}</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="phase-indicator">
                             {phases.map((p, i) => (
                                 <div key={p.key} className={`phase-step ${i < currentPhaseIdx ? "done" : ""} ${i === currentPhaseIdx ? "active" : ""}`}>
@@ -586,7 +838,10 @@ function App() {
                                                 style={{ cursor: "pointer" }} />
                                         )}
                                         {img.status === "failed" && <span style={{ color: "var(--error)", fontSize: "0.75rem" }}>Failed</span>}
-                                        <div className="label"><span className="day-badge">Day {day}</span><br />{img.theme}</div>
+                                        <div className="label">
+                                            <span className="day-badge">{activeMode === "sku" ? `Image ${day}` : `Day ${day}`}</span>
+                                            <br />{img.theme}
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -607,15 +862,48 @@ function App() {
                 </>
             )}
 
+            {/* ── RESULTS VIEW ── */}
             {view === "results" && (
                 <>
                     <div className="card" style={{ textAlign: "center" }}>
-                        <h2 style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>Content Pack Ready</h2>
-                        <p style={{ color: "var(--brand-dark-grey)" }}>Your 30-day content engine has been generated.</p>
+                        <h2 style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>
+                            {activeMode === "sku" ? "Product Content Pack Ready" : "Content Pack Ready"}
+                        </h2>
+                        <p style={{ color: "var(--brand-dark-grey)" }}>
+                            {activeMode === "sku"
+                                ? "Blog post, social media posts, product descriptions, and email campaign have been generated."
+                                : "Your 30-day content engine has been generated."}
+                        </p>
+
+                        {/* Product preview in results (SKU mode) */}
+                        {productPreview && (
+                            <div className="product-preview" style={{ justifyContent: "center", marginTop: "1rem" }}>
+                                {productPreview.image_url && <img src={productPreview.image_url} alt={productPreview.title} />}
+                                <div className="product-info" style={{ textAlign: "left" }}>
+                                    <div className="product-name">{productPreview.title}</div>
+                                    <div className="product-price">
+                                        RM{productPreview.price}
+                                        {productPreview.compare_price && <span className="compare">RM{productPreview.compare_price}</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="results-summary">
-                            <div className="stat-card"><div className="value">6</div><div className="label">Excel Sheets</div></div>
-                            <div className="stat-card"><div className="value">30</div><div className="label">Days Planned</div></div>
-                            <div className="stat-card"><div className="value">{imagesDone}</div><div className="label">Images</div></div>
+                            {activeMode === "sku" ? (
+                                <>
+                                    <div className="stat-card"><div className="value">5</div><div className="label">Excel Sheets</div></div>
+                                    <div className="stat-card"><div className="value">6</div><div className="label">Social Posts</div></div>
+                                    <div className="stat-card"><div className="value">{imagesDone}</div><div className="label">AI Images</div></div>
+                                    <div className="stat-card"><div className="value">1</div><div className="label">Email Campaign</div></div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="stat-card"><div className="value">6</div><div className="label">Excel Sheets</div></div>
+                                    <div className="stat-card"><div className="value">30</div><div className="label">Days Planned</div></div>
+                                    <div className="stat-card"><div className="value">{imagesDone}</div><div className="label">Images</div></div>
+                                </>
+                            )}
                             {duration && (
                                 <div className="stat-card">
                                     <div className="value">{Math.floor(duration/60)}:{String(duration%60).padStart(2,'0')}</div>
@@ -645,7 +933,10 @@ function App() {
                                         <div key={day} className="image-slot done" style={{ cursor: "pointer" }}
                                             onClick={() => setLightbox(`/api/images/${sessionId}/${img.filename}`)}>
                                             <img src={`/api/images/${sessionId}/${img.filename}`} alt={img.theme} />
-                                            <div className="label"><span className="day-badge">Day {day}</span><br />{img.theme}</div>
+                                            <div className="label">
+                                                <span className="day-badge">{activeMode === "sku" ? `Image ${day}` : `Day ${day}`}</span>
+                                                <br />{img.theme}
+                                            </div>
                                         </div>
                                     ))}
                             </div>

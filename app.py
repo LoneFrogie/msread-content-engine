@@ -29,6 +29,7 @@ from pydantic import BaseModel
 import uvicorn
 
 from engine import run_pipeline
+from sku_engine import run_sku_pipeline
 
 app = FastAPI(title="MS. READ Content Engine")
 
@@ -45,6 +46,8 @@ GOOGLE_AI_API_KEY = os.getenv("GOOGLE_AI_API_KEY", "")
 class Session:
     session_id: str
     creative_brief: str
+    mode: str = "calendar"  # "calendar" or "sku"
+    product_url: str = ""
     status: str = "pending"
     events: list = field(default_factory=list)
     output_dir: Path = None
@@ -72,6 +75,11 @@ class GenerateRequest(BaseModel):
     creative_brief: str
 
 
+class GenerateSkuRequest(BaseModel):
+    product_url: str
+    creative_brief: str = ""
+
+
 @app.get("/")
 async def index():
     return FileResponse(TEMPLATE_DIR / "index.html")
@@ -97,6 +105,7 @@ async def start_generation(req: GenerateRequest):
     session = Session(
         session_id=session_id,
         creative_brief=req.creative_brief.strip(),
+        mode="calendar",
         status="running",
         output_dir=output_dir,
     )
@@ -111,16 +120,78 @@ async def start_generation(req: GenerateRequest):
         elif data.get("phase") == "done":
             session.status = "done"
 
-    thread = Thread(target=_run_in_thread, args=(session, callback), daemon=True)
+    thread = Thread(target=_run_calendar_thread, args=(session, callback), daemon=True)
     thread.start()
 
-    return {"session_id": session_id}
+    return {"session_id": session_id, "mode": "calendar"}
 
 
-def _run_in_thread(session: Session, callback):
+@app.post("/api/generate-sku")
+async def start_sku_generation(req: GenerateSkuRequest):
+    if not GOOGLE_AI_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="GOOGLE_AI_API_KEY not set. Copy .env.example to .env and add your key."
+        )
+
+    if not req.product_url.strip():
+        raise HTTPException(status_code=400, detail="Product URL cannot be empty")
+
+    cleanup_old_sessions()
+
+    session_id = uuid4().hex[:12]
+    output_dir = OUTPUT_BASE / session_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    session = Session(
+        session_id=session_id,
+        creative_brief=req.creative_brief.strip(),
+        mode="sku",
+        product_url=req.product_url.strip(),
+        status="running",
+        output_dir=output_dir,
+    )
+    sessions[session_id] = session
+
+    def callback(event_type, data):
+        event = {"type": event_type, "timestamp": datetime.now().isoformat(), **data}
+        session.events.append(event)
+        if event_type == "error":
+            session.status = "error"
+            session.error = data.get("message", "Unknown error")
+        elif data.get("phase") == "done":
+            session.status = "done"
+
+    thread = Thread(target=_run_sku_thread, args=(session, callback), daemon=True)
+    thread.start()
+
+    return {"session_id": session_id, "mode": "sku"}
+
+
+def _run_calendar_thread(session: Session, callback):
     try:
         run_pipeline(
             api_key=GOOGLE_AI_API_KEY,
+            creative_brief=session.creative_brief,
+            output_dir=session.output_dir,
+            callback=callback,
+        )
+    except Exception as e:
+        if session.status != "error":
+            session.status = "error"
+            session.error = str(e)
+            session.events.append({
+                "type": "error",
+                "message": str(e),
+                "timestamp": datetime.now().isoformat(),
+            })
+
+
+def _run_sku_thread(session: Session, callback):
+    try:
+        run_sku_pipeline(
+            api_key=GOOGLE_AI_API_KEY,
+            product_url=session.product_url,
             creative_brief=session.creative_brief,
             output_dir=session.output_dir,
             callback=callback,
@@ -185,14 +256,17 @@ async def download_zip(session_id: str):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    zip_path = sessions[session_id].output_dir / "MSRead_Content_Engine.zip"
-    if not zip_path.exists():
+    session = sessions[session_id]
+    # Find the zip file (could be calendar or sku)
+    zip_files = list(session.output_dir.glob("*.zip"))
+    if not zip_files:
         raise HTTPException(status_code=404, detail="Package not ready yet")
 
+    zip_path = zip_files[0]
     return FileResponse(
         zip_path,
         media_type="application/zip",
-        filename=f"MSRead_Content_Engine_{datetime.now().strftime('%Y%m%d')}.zip",
+        filename=f"{zip_path.stem}_{datetime.now().strftime('%Y%m%d')}.zip",
     )
 
 
@@ -201,14 +275,17 @@ async def download_excel(session_id: str):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    excel_path = sessions[session_id].output_dir / "MSRead_Content_Engine.xlsx"
-    if not excel_path.exists():
+    session = sessions[session_id]
+    # Find the xlsx file (could be calendar or sku)
+    xlsx_files = list(session.output_dir.glob("*.xlsx"))
+    if not xlsx_files:
         raise HTTPException(status_code=404, detail="Excel not ready yet")
 
+    excel_path = xlsx_files[0]
     return FileResponse(
         excel_path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=f"MSRead_Content_Engine_{datetime.now().strftime('%Y%m%d')}.xlsx",
+        filename=f"{excel_path.stem}_{datetime.now().strftime('%Y%m%d')}.xlsx",
     )
 
 
