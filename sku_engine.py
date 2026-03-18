@@ -99,13 +99,14 @@ def extract_handle_from_url(url: str) -> str:
     parsed = urlparse(url.strip())
     path = parsed.path.strip("/")
 
-    # Handle: /products/some-product-handle or /collections/xxx/products/some-product-handle
-    if "/products/" in path:
-        handle = path.split("/products/")[-1].split("?")[0].split("#")[0]
-        return handle
+    # Handle: products/some-product-handle or collections/xxx/products/some-product-handle
+    if "products/" in path:
+        handle = path.split("products/")[-1].split("?")[0].split("#")[0]
+        if handle:
+            return handle
 
     # Maybe they pasted just the handle
-    if not "/" in path and path:
+    if "/" not in path and path:
         return path
 
     raise ValueError(f"Could not extract product handle from URL: {url}")
