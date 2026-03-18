@@ -15,6 +15,9 @@ from pathlib import Path
 from typing import Callable
 from urllib.parse import urlparse
 import zipfile
+import logging
+
+logger = logging.getLogger(__name__)
 
 import requests
 from bs4 import BeautifulSoup
@@ -324,6 +327,7 @@ def generate_sku_content(client, product: dict, creative_brief: str, callback: C
         config=types.GenerateContentConfig(
             temperature=0.7,
             max_output_tokens=16000,
+            response_mime_type="application/json",
         ),
     )
 
@@ -339,10 +343,59 @@ def generate_sku_content(client, product: dict, creative_brief: str, callback: C
         text = text.rsplit("```", 1)[0]
     text = text.strip()
 
-    content = json.loads(text)
+    content = _parse_json_robust(text)
     content = _sanitize_sku_content(content)
     callback("status", {"phase": "content_generated", "message": "All content generated successfully"})
     return content
+
+
+def _parse_json_robust(text: str) -> dict:
+    """Parse JSON with repair for common Gemini output issues."""
+    # Try direct parse first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Fix 1: Remove trailing commas before } or ]
+    fixed = re.sub(r',\s*([\]}])', r'\1', text)
+    try:
+        return json.loads(fixed)
+    except json.JSONDecodeError:
+        pass
+
+    # Fix 2: Escape unescaped newlines inside strings
+    fixed2 = fixed.replace('\n', '\\n')
+    try:
+        return json.loads(fixed2)
+    except json.JSONDecodeError:
+        pass
+
+    # Fix 3: Truncated JSON — try to close open brackets/braces
+    repaired = fixed
+    open_braces = repaired.count('{') - repaired.count('}')
+    open_brackets = repaired.count('[') - repaired.count(']')
+
+    # Trim to last complete value
+    repaired = repaired.rstrip()
+    if repaired and repaired[-1] not in '"}]0123456789truefalsenull':
+        # Remove incomplete trailing content
+        for end_char in ['"', '}', ']']:
+            last_pos = repaired.rfind(end_char)
+            if last_pos > 0:
+                repaired = repaired[:last_pos + 1]
+                break
+
+    # Recount after trimming
+    open_braces = repaired.count('{') - repaired.count('}')
+    open_brackets = repaired.count('[') - repaired.count(']')
+    repaired += ']' * max(0, open_brackets) + '}' * max(0, open_braces)
+
+    try:
+        return json.loads(repaired)
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON repair failed. Raw text (first 500 chars): {text[:500]}")
+        raise ValueError(f"Failed to parse Gemini response as JSON: {e}")
 
 
 def _sanitize_sku_content(content: dict) -> dict:

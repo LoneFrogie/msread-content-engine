@@ -134,6 +134,7 @@ def generate_adapted_content(client, creative_brief: str, start_date: str, callb
         config=types.GenerateContentConfig(
             temperature=0.7,
             max_output_tokens=16000,
+            response_mime_type="application/json",
         ),
     )
 
