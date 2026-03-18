@@ -8,30 +8,32 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         :root {
-            --navy: #1B2A4A;
-            --gold: #C8A951;
-            --gold-light: #e8d5a0;
-            --burgundy: #7A1F3D;
-            --cream: #FFF8F0;
-            --dark-bg: #0a0a0f;
-            --card-bg: #141419;
-            --card-border: #2a2a35;
-            --text-primary: #f0ece4;
-            --text-secondary: #9a9a9a;
-            --success: #2D6A4F;
-            --error: #d32f2f;
+            /* MS. READ brand colors — from msreadshop.com */
+            --brand-black: #151515;
+            --brand-coral: #f9765b;
+            --brand-coral-light: #fca08c;
+            --brand-red: #ee3b45;
+            --brand-peach: #f5c3b7;
+            --brand-white: #ffffff;
+            --brand-offwhite: #f7f7f7;
+            --brand-grey: #E2E2E2;
+            --brand-dark-grey: #6b6b6b;
+            --brand-green: #279A4B;
+            --brand-sale: #ab2e1c;
+            --error: #ee3b45;
         }
 
         body {
-            font-family: 'DM Sans', sans-serif;
-            background: var(--dark-bg);
-            color: var(--text-primary);
+            font-family: 'Jost', sans-serif;
+            background: var(--brand-offwhite);
+            color: var(--brand-black);
             min-height: 100vh;
+            font-weight: 400;
         }
 
         .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
@@ -39,58 +41,71 @@
         /* Header */
         .header {
             text-align: center;
-            padding: 3rem 0 2rem;
-            border-bottom: 1px solid var(--card-border);
-            margin-bottom: 3rem;
+            padding: 2.5rem 0 2rem;
+            border-bottom: 1px solid var(--brand-grey);
+            margin-bottom: 2.5rem;
         }
         .header h1 {
-            font-family: 'Playfair Display', serif;
-            font-size: 2.4rem;
-            color: var(--gold);
-            margin-bottom: 0.3rem;
-            letter-spacing: 2px;
+            font-family: 'Jost', sans-serif;
+            font-size: 2.6rem;
+            font-weight: 500;
+            color: var(--brand-black);
+            margin-bottom: 0.2rem;
+            letter-spacing: 6px;
+            text-transform: uppercase;
         }
-        .header p {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
+        .header .tagline {
+            color: var(--brand-dark-grey);
+            font-size: 0.85rem;
             font-weight: 300;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        .header .subtitle {
+            color: var(--brand-coral);
+            font-size: 0.95rem;
+            font-weight: 400;
+            margin-top: 0.6rem;
         }
 
         /* Card */
         .card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 12px;
+            background: var(--brand-white);
+            border: 1px solid var(--brand-grey);
+            border-radius: 0;
             padding: 2rem;
             margin-bottom: 1.5rem;
         }
         .card h2 {
-            font-family: 'Playfair Display', serif;
-            color: var(--gold);
-            font-size: 1.3rem;
+            font-family: 'Jost', sans-serif;
+            font-weight: 500;
+            color: var(--brand-black);
+            font-size: 1.2rem;
             margin-bottom: 1rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
 
         /* Form */
         .brief-input {
             width: 100%;
             min-height: 160px;
-            background: #0d0d12;
-            border: 1px solid var(--card-border);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-family: 'DM Sans', sans-serif;
+            background: var(--brand-offwhite);
+            border: 1px solid var(--brand-grey);
+            border-radius: 0;
+            color: var(--brand-black);
+            font-family: 'Jost', sans-serif;
             font-size: 0.95rem;
             padding: 1rem;
             resize: vertical;
-            line-height: 1.6;
+            line-height: 1.7;
             transition: border-color 0.2s;
         }
         .brief-input:focus {
             outline: none;
-            border-color: var(--gold);
+            border-color: var(--brand-black);
         }
-        .brief-input::placeholder { color: #555; }
+        .brief-input::placeholder { color: #999; }
 
         .examples {
             margin-top: 1rem;
@@ -100,81 +115,86 @@
         }
         .example-chip {
             background: transparent;
-            border: 1px solid var(--card-border);
-            color: var(--text-secondary);
-            padding: 0.4rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            border: 1px solid var(--brand-grey);
+            color: var(--brand-dark-grey);
+            padding: 0.4rem 0.9rem;
+            border-radius: 0;
+            font-size: 0.78rem;
             cursor: pointer;
             transition: all 0.2s;
-            font-family: 'DM Sans', sans-serif;
+            font-family: 'Jost', sans-serif;
+            letter-spacing: 0.3px;
         }
         .example-chip:hover {
-            border-color: var(--gold);
-            color: var(--gold);
+            border-color: var(--brand-coral);
+            color: var(--brand-coral);
         }
 
-        /* Button */
+        /* Buttons — sharp corners like msreadshop.com */
         .btn-primary {
-            background: linear-gradient(135deg, var(--gold) 0%, #a88a3a 100%);
-            color: var(--navy);
+            background: var(--brand-black);
+            color: var(--brand-white);
             border: none;
-            padding: 0.9rem 2.5rem;
-            border-radius: 8px;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 1.5rem;
-            transition: all 0.2s;
-            letter-spacing: 0.5px;
-        }
-        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(200,169,81,0.3); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-        .btn-secondary {
-            background: transparent;
-            color: var(--gold);
-            border: 1px solid var(--gold);
-            padding: 0.7rem 1.8rem;
-            border-radius: 8px;
-            font-family: 'DM Sans', sans-serif;
+            padding: 0.9rem 2.8rem;
+            border-radius: 0;
+            font-family: 'Jost', sans-serif;
             font-size: 0.9rem;
             font-weight: 500;
             cursor: pointer;
+            margin-top: 1.5rem;
             transition: all 0.2s;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
         }
-        .btn-secondary:hover { background: rgba(200,169,81,0.1); }
+        .btn-primary:hover { background: #333; }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--brand-black);
+            border: 1px solid var(--brand-black);
+            padding: 0.7rem 2rem;
+            border-radius: 0;
+            font-family: 'Jost', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .btn-secondary:hover { background: var(--brand-black); color: var(--brand-white); }
 
         .btn-download {
-            background: linear-gradient(135deg, var(--success) 0%, #1e5038 100%);
-            color: white;
+            background: var(--brand-coral);
+            color: var(--brand-white);
             border: none;
             padding: 1rem 2.5rem;
-            border-radius: 8px;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 1.05rem;
-            font-weight: 600;
+            border-radius: 0;
+            font-family: 'Jost', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 500;
             cursor: pointer;
             transition: all 0.2s;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
-        .btn-download:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(45,106,79,0.4); }
+        .btn-download:hover { background: #e5654b; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(249,118,91,0.3); }
 
         /* Progress */
         .progress-bar-container {
-            background: #1a1a22;
-            border-radius: 20px;
-            height: 8px;
+            background: var(--brand-grey);
+            border-radius: 0;
+            height: 6px;
             overflow: hidden;
             margin: 1rem 0;
         }
         .progress-bar-fill {
             height: 100%;
-            background: linear-gradient(90deg, var(--gold), var(--gold-light));
-            border-radius: 20px;
+            background: linear-gradient(90deg, var(--brand-coral), var(--brand-coral-light));
             transition: width 0.5s ease;
         }
 
@@ -187,32 +207,35 @@
             flex: 1;
             text-align: center;
             padding: 0.8rem 0.5rem;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            border-bottom: 3px solid var(--card-border);
+            font-size: 0.72rem;
+            color: var(--brand-dark-grey);
+            border-bottom: 2px solid var(--brand-grey);
             transition: all 0.3s;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
         .phase-step.active {
-            color: var(--gold);
-            border-bottom-color: var(--gold);
+            color: var(--brand-coral);
+            border-bottom-color: var(--brand-coral);
+            font-weight: 500;
         }
         .phase-step.done {
-            color: var(--success);
-            border-bottom-color: var(--success);
+            color: var(--brand-green);
+            border-bottom-color: var(--brand-green);
         }
 
         /* Image Grid */
         .image-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 1rem;
+            gap: 0.8rem;
             margin-top: 1rem;
         }
         .image-slot {
             aspect-ratio: 1;
-            background: #1a1a22;
-            border: 1px solid var(--card-border);
-            border-radius: 8px;
+            background: var(--brand-offwhite);
+            border: 1px solid var(--brand-grey);
+            border-radius: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -222,10 +245,10 @@
             transition: border-color 0.3s;
         }
         .image-slot.generating {
-            border-color: var(--gold);
+            border-color: var(--brand-coral);
             animation: pulse-border 1.5s infinite;
         }
-        .image-slot.done { border-color: var(--success); }
+        .image-slot.done { border-color: var(--brand-green); }
         .image-slot.failed { border-color: var(--error); }
         .image-slot img {
             width: 100%;
@@ -238,35 +261,32 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: linear-gradient(transparent, rgba(0,0,0,0.85));
+            background: linear-gradient(transparent, rgba(21,21,21,0.85));
             padding: 2rem 0.6rem 0.5rem;
             font-size: 0.7rem;
-            color: var(--cream);
+            color: var(--brand-white);
         }
         .image-slot .day-badge {
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-        }
-        .image-slot .theme-name {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            margin-top: 0.3rem;
+            font-size: 0.68rem;
+            color: var(--brand-peach);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         @keyframes pulse-border {
-            0%, 100% { border-color: var(--gold); }
-            50% { border-color: transparent; }
+            0%, 100% { border-color: var(--brand-coral); }
+            50% { border-color: var(--brand-grey); }
         }
         @keyframes fadeIn {
-            from { opacity: 0; transform: scale(0.95); }
+            from { opacity: 0; transform: scale(0.97); }
             to { opacity: 1; transform: scale(1); }
         }
 
         /* Spinner */
         .spinner {
             width: 24px; height: 24px;
-            border: 2px solid var(--card-border);
-            border-top-color: var(--gold);
+            border: 2px solid var(--brand-grey);
+            border-top-color: var(--brand-coral);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
@@ -274,44 +294,48 @@
 
         /* Log */
         .log-panel {
-            background: #0d0d12;
-            border: 1px solid var(--card-border);
-            border-radius: 8px;
+            background: var(--brand-offwhite);
+            border: 1px solid var(--brand-grey);
+            border-radius: 0;
             padding: 1rem;
             max-height: 200px;
             overflow-y: auto;
-            font-family: 'DM Sans', monospace;
+            font-family: 'Jost', sans-serif;
             font-size: 0.8rem;
-            color: var(--text-secondary);
+            color: var(--brand-dark-grey);
             margin-top: 1rem;
         }
         .log-entry { padding: 0.15rem 0; }
-        .log-entry.success { color: var(--success); }
+        .log-entry.success { color: var(--brand-green); }
         .log-entry.error { color: var(--error); }
-        .log-entry .time { color: #555; margin-right: 0.5rem; }
+        .log-entry .time { color: #aaa; margin-right: 0.5rem; }
 
         /* Results */
         .results-summary {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 1rem;
+            gap: 0.8rem;
             margin: 1.5rem 0;
         }
         .stat-card {
-            background: #1a1a22;
-            border-radius: 8px;
+            background: var(--brand-offwhite);
+            border: 1px solid var(--brand-grey);
+            border-radius: 0;
             padding: 1.2rem;
             text-align: center;
         }
         .stat-card .value {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.8rem;
-            color: var(--gold);
+            font-family: 'Jost', sans-serif;
+            font-size: 2rem;
+            font-weight: 500;
+            color: var(--brand-black);
         }
         .stat-card .label {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            margin-top: 0.3rem;
+            font-size: 0.72rem;
+            color: var(--brand-dark-grey);
+            margin-top: 0.2rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .download-section {
@@ -323,11 +347,22 @@
             flex-wrap: wrap;
         }
 
+        /* Announcement bar — like msreadshop.com */
+        .announcement-bar {
+            background: var(--brand-peach);
+            text-align: center;
+            padding: 0.6rem;
+            font-size: 0.78rem;
+            color: var(--brand-black);
+            letter-spacing: 1px;
+            font-weight: 400;
+        }
+
         /* Lightbox */
         .lightbox {
             position: fixed;
             inset: 0;
-            background: rgba(0,0,0,0.9);
+            background: rgba(21,21,21,0.92);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -337,18 +372,31 @@
         .lightbox img {
             max-width: 90vw;
             max-height: 90vh;
-            border-radius: 8px;
         }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem 0 1rem;
+            color: var(--brand-dark-grey);
+            font-size: 0.75rem;
+            border-top: 1px solid var(--brand-grey);
+            margin-top: 2rem;
+            letter-spacing: 0.5px;
+        }
+        .footer a { color: var(--brand-coral); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
 
         /* Responsive */
         @media (max-width: 600px) {
             .container { padding: 1rem; }
-            .header h1 { font-size: 1.6rem; }
+            .header h1 { font-size: 1.6rem; letter-spacing: 4px; }
             .image-grid { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
 <body>
+<div class="announcement-bar">FASHION THAT FITS YOUR CONFIDENCE &mdash; AI-POWERED CONTENT ENGINE</div>
 <div id="root"></div>
 
 <script type="text/babel">
@@ -363,7 +411,7 @@ const EXAMPLE_BRIEFS = [
 ];
 
 function App() {
-    const [view, setView] = useState("input"); // input | progress | results
+    const [view, setView] = useState("input");
     const [brief, setBrief] = useState("");
     const [sessionId, setSessionId] = useState(null);
     const [events, setEvents] = useState([]);
@@ -376,22 +424,16 @@ function App() {
     const [endTime, setEndTime] = useState(null);
     const logRef = useRef(null);
 
-    // Auto-scroll log
     useEffect(() => {
-        if (logRef.current) {
-            logRef.current.scrollTop = logRef.current.scrollHeight;
-        }
+        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [events]);
 
     async function handleGenerate() {
         if (!brief.trim()) return;
-        setError(null);
-        setEvents([]);
-        setImages({});
+        setError(null); setEvents([]); setImages({});
         setCurrentPhase("adapting");
         setImageProgress({ current: 0, total: 13 });
-        setStartTime(Date.now());
-        setEndTime(null);
+        setStartTime(Date.now()); setEndTime(null);
 
         try {
             const res = await fetch("/api/generate", {
@@ -399,94 +441,49 @@ function App() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ creative_brief: brief }),
             });
-
-            if (!res.ok) {
-                const err = await res.json();
-                setError(err.detail || "Failed to start generation");
-                return;
-            }
+            if (!res.ok) { setError((await res.json()).detail || "Failed"); return; }
 
             const { session_id } = await res.json();
-            setSessionId(session_id);
-            setView("progress");
+            setSessionId(session_id); setView("progress");
 
-            // Start SSE
-            const eventSource = new EventSource(`/api/progress/${session_id}`);
-            eventSource.onmessage = (e) => {
-                const event = JSON.parse(e.data);
-
-                if (event.type === "stream_end") {
-                    eventSource.close();
-                    if (event.status === "done") {
-                        setEndTime(Date.now());
-                        setView("results");
-                    } else if (event.status === "error") {
-                        setError("Generation failed. Check the log for details.");
-                    }
+            const es = new EventSource(`/api/progress/${session_id}`);
+            es.onmessage = (e) => {
+                const ev = JSON.parse(e.data);
+                if (ev.type === "stream_end") {
+                    es.close();
+                    if (ev.status === "done") { setEndTime(Date.now()); setView("results"); }
+                    else setError("Generation failed. Check the log.");
                     return;
                 }
-
-                setEvents((prev) => [...prev, event]);
-
-                if (event.type === "status" && event.phase) {
-                    setCurrentPhase(event.phase);
+                setEvents((prev) => [...prev, ev]);
+                if (ev.type === "status" && ev.phase) setCurrentPhase(ev.phase);
+                if (ev.type === "image_start") {
+                    setImageProgress({ current: ev.index, total: ev.total });
+                    setImages((prev) => ({ ...prev, [ev.day]: { status: "generating", theme: ev.theme } }));
                 }
-
-                if (event.type === "image_start") {
-                    setImageProgress({ current: event.index, total: event.total });
-                    setImages((prev) => ({
-                        ...prev,
-                        [event.day]: { status: "generating", theme: event.theme },
-                    }));
+                if (ev.type === "image_done") {
+                    setImageProgress({ current: ev.index + 1, total: ev.total });
+                    setImages((prev) => ({ ...prev, [ev.day]: { status: ev.success ? "done" : "failed", theme: ev.theme, filename: ev.filename } }));
                 }
-
-                if (event.type === "image_done") {
-                    setImageProgress({ current: event.index + 1, total: event.total });
-                    setImages((prev) => ({
-                        ...prev,
-                        [event.day]: {
-                            status: event.success ? "done" : "failed",
-                            theme: event.theme,
-                            filename: event.filename,
-                        },
-                    }));
-                }
-
-                if (event.type === "error") {
-                    setError(event.message);
-                }
+                if (ev.type === "error") setError(ev.message);
             };
-
-            eventSource.onerror = () => {
-                eventSource.close();
-            };
-
-        } catch (err) {
-            setError("Network error: " + err.message);
-        }
+            es.onerror = () => es.close();
+        } catch (err) { setError("Network error: " + err.message); }
     }
 
     function resetToInput() {
-        setView("input");
-        setBrief("");
-        setSessionId(null);
-        setEvents([]);
-        setImages({});
-        setCurrentPhase("");
-        setError(null);
-        setStartTime(null);
-        setEndTime(null);
+        setView("input"); setBrief(""); setSessionId(null); setEvents([]); setImages({});
+        setCurrentPhase(""); setError(null); setStartTime(null); setEndTime(null);
     }
 
     const phases = [
-        { key: "adapting", label: "Adapting Content" },
-        { key: "building_excel", label: "Building Excel" },
-        { key: "generating_images", label: "Generating Images" },
-        { key: "embedding", label: "Embedding" },
-        { key: "packaging", label: "Packaging" },
+        { key: "adapting", label: "Adapting" },
+        { key: "building_excel", label: "Excel" },
+        { key: "generating_images", label: "Images" },
+        { key: "embedding", label: "Embed" },
+        { key: "packaging", label: "Package" },
         { key: "done", label: "Done" },
     ];
-
     const phaseOrder = phases.map(p => p.key);
     const currentPhaseIdx = phaseOrder.indexOf(currentPhase);
 
@@ -494,9 +491,8 @@ function App() {
         if (currentPhase === "done") return 100;
         if (currentPhase === "packaging") return 95;
         if (currentPhase === "embedding") return 90;
-        if (currentPhase === "generating_images") {
+        if (currentPhase === "generating_images")
             return 20 + (imageProgress.current / Math.max(imageProgress.total, 1)) * 70;
-        }
         if (currentPhase === "building_excel" || currentPhase === "excel_done") return 18;
         if (currentPhase === "adapted" || currentPhase === "adapting") return 8;
         return 0;
@@ -504,39 +500,38 @@ function App() {
 
     const duration = endTime && startTime ? Math.round((endTime - startTime) / 1000) : null;
     const imagesDone = Object.values(images).filter(i => i.status === "done").length;
-    const imagesFailed = Object.values(images).filter(i => i.status === "failed").length;
 
     return (
         <div className="container">
             <div className="header">
                 <h1>MS. READ</h1>
-                <p>30-Day Viral-to-Value Content Engine</p>
+                <div className="tagline">Fashion That Fits Your Confidence</div>
+                <div className="subtitle">30-Day Content Engine</div>
             </div>
 
             {error && (
-                <div className="card" style={{ borderColor: "var(--error)" }}>
+                <div className="card" style={{ borderColor: "var(--error)", borderWidth: 2 }}>
                     <p style={{ color: "var(--error)" }}>{error}</p>
                 </div>
             )}
 
-            {/* ── INPUT VIEW ── */}
             {view === "input" && (
                 <>
                     <div className="card">
                         <h2>Creative Direction</h2>
-                        <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "1rem" }}>
-                            Tell the engine what you want this month's content to focus on. Be specific about campaigns, products, themes, or goals.
+                        <p style={{ color: "var(--brand-dark-grey)", fontSize: "0.88rem", marginBottom: "1rem", lineHeight: 1.6 }}>
+                            Describe your campaign focus &mdash; products, themes, seasonal events, or goals. The engine will adapt all 30 days of content, blog, captions, and images to match.
                         </p>
                         <textarea
                             className="brief-input"
-                            placeholder={"Example: Focus on our Raya collection launch. Highlight modest fashion pieces — baju kurung, flowing maxi dresses, hijab-friendly designs in pastel and jewel tones. Campaign goal: drive pre-orders and in-store visits during Ramadan. Target working women 25-45 who want stylish, modest plus-size fashion for Hari Raya celebrations and open houses."}
+                            placeholder={"Example: Focus on our Raya collection launch. Highlight modest fashion pieces \u2014 baju kurung, flowing maxi dresses, hijab-friendly designs in pastel and jewel tones. Campaign goal: drive pre-orders and in-store visits during Ramadan."}
                             value={brief}
                             onChange={(e) => setBrief(e.target.value)}
                         />
                         <div className="examples">
                             {EXAMPLE_BRIEFS.map((ex, i) => (
                                 <button key={i} className="example-chip" onClick={() => setBrief(ex)}>
-                                    {ex.slice(0, 40)}...
+                                    {ex.slice(0, 42)}...
                                 </button>
                             ))}
                         </div>
@@ -558,12 +553,10 @@ function App() {
                 </>
             )}
 
-            {/* ── PROGRESS VIEW ── */}
             {view === "progress" && (
                 <>
                     <div className="card">
                         <h2>Generating Your Content Pack</h2>
-
                         <div className="phase-indicator">
                             {phases.map((p, i) => (
                                 <div key={p.key} className={`phase-step ${i < currentPhaseIdx ? "done" : ""} ${i === currentPhaseIdx ? "active" : ""}`}>
@@ -571,13 +564,12 @@ function App() {
                                 </div>
                             ))}
                         </div>
-
                         <div className="progress-bar-container">
                             <div className="progress-bar-fill" style={{ width: `${overallProgress}%` }} />
                         </div>
-                        <p style={{ textAlign: "center", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                        <p style={{ textAlign: "center", color: "var(--brand-dark-grey)", fontSize: "0.85rem" }}>
                             {Math.round(overallProgress)}% complete
-                            {currentPhase === "generating_images" && ` — Image ${imageProgress.current}/${imageProgress.total}`}
+                            {currentPhase === "generating_images" && ` \u2014 Image ${imageProgress.current}/${imageProgress.total}`}
                         </p>
                     </div>
 
@@ -585,25 +577,16 @@ function App() {
                         <div className="card">
                             <h2>Image Generation ({imagesDone}/{imageProgress.total})</h2>
                             <div className="image-grid">
-                                {Object.entries(images).sort(([a], [b]) => Number(a) - Number(b)).map(([day, img]) => (
+                                {Object.entries(images).sort(([a],[b]) => Number(a)-Number(b)).map(([day, img]) => (
                                     <div key={day} className={`image-slot ${img.status}`}>
                                         {img.status === "generating" && <div className="spinner" />}
                                         {img.status === "done" && img.filename && (
-                                            <img
-                                                src={`/api/images/${sessionId}/${img.filename}`}
-                                                alt={img.theme}
+                                            <img src={`/api/images/${sessionId}/${img.filename}`} alt={img.theme}
                                                 onClick={() => setLightbox(`/api/images/${sessionId}/${img.filename}`)}
-                                                style={{ cursor: "pointer" }}
-                                            />
+                                                style={{ cursor: "pointer" }} />
                                         )}
-                                        {img.status === "failed" && (
-                                            <span style={{ color: "var(--error)", fontSize: "0.75rem" }}>Failed</span>
-                                        )}
-                                        <div className="label">
-                                            <span className="day-badge">Day {day}</span>
-                                            <br />
-                                            {img.theme}
-                                        </div>
+                                        {img.status === "failed" && <span style={{ color: "var(--error)", fontSize: "0.75rem" }}>Failed</span>}
+                                        <div className="label"><span className="day-badge">Day {day}</span><br />{img.theme}</div>
                                     </div>
                                 ))}
                             </div>
@@ -615,9 +598,7 @@ function App() {
                         <div className="log-panel" ref={logRef}>
                             {events.map((e, i) => (
                                 <div key={i} className={`log-entry ${e.type === "error" ? "error" : e.success === true ? "success" : ""}`}>
-                                    <span className="time">
-                                        {new Date(e.timestamp).toLocaleTimeString()}
-                                    </span>
+                                    <span className="time">{new Date(e.timestamp).toLocaleTimeString()}</span>
                                     {e.message}
                                 </div>
                             ))}
@@ -626,17 +607,15 @@ function App() {
                 </>
             )}
 
-            {/* ── RESULTS VIEW ── */}
             {view === "results" && (
                 <>
                     <div className="card" style={{ textAlign: "center" }}>
-                        <h2 style={{ fontSize: "1.6rem", marginBottom: "0.5rem" }}>Content Pack Ready!</h2>
-                        <p style={{ color: "var(--text-secondary)" }}>Your 30-day content engine has been generated.</p>
-
+                        <h2 style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>Content Pack Ready</h2>
+                        <p style={{ color: "var(--brand-dark-grey)" }}>Your 30-day content engine has been generated.</p>
                         <div className="results-summary">
                             <div className="stat-card"><div className="value">6</div><div className="label">Excel Sheets</div></div>
                             <div className="stat-card"><div className="value">30</div><div className="label">Days Planned</div></div>
-                            <div className="stat-card"><div className="value">{imagesDone}</div><div className="label">Images Generated</div></div>
+                            <div className="stat-card"><div className="value">{imagesDone}</div><div className="label">Images</div></div>
                             {duration && (
                                 <div className="stat-card">
                                     <div className="value">{Math.floor(duration/60)}:{String(duration%60).padStart(2,'0')}</div>
@@ -644,12 +623,11 @@ function App() {
                                 </div>
                             )}
                         </div>
-
                         <div className="download-section">
                             <button className="btn-download" onClick={() => window.location.href = `/api/download/${sessionId}`}>
                                 Download Full Pack (.zip)
                             </button>
-                            <button className="btn-download" style={{ background: "linear-gradient(135deg, var(--navy) 0%, #0f1a30 100%)" }}
+                            <button className="btn-download" style={{ background: "var(--brand-black)" }}
                                 onClick={() => window.location.href = `/api/download-excel/${sessionId}`}>
                                 Download Excel Only
                             </button>
@@ -658,18 +636,16 @@ function App() {
 
                     {Object.keys(images).length > 0 && (
                         <div className="card">
-                            <h2>Generated Images (click to enlarge)</h2>
+                            <h2>Generated Images</h2>
                             <div className="image-grid">
                                 {Object.entries(images)
                                     .filter(([_, img]) => img.status === "done" && img.filename)
-                                    .sort(([a], [b]) => Number(a) - Number(b))
+                                    .sort(([a],[b]) => Number(a)-Number(b))
                                     .map(([day, img]) => (
                                         <div key={day} className="image-slot done" style={{ cursor: "pointer" }}
                                             onClick={() => setLightbox(`/api/images/${sessionId}/${img.filename}`)}>
                                             <img src={`/api/images/${sessionId}/${img.filename}`} alt={img.theme} />
-                                            <div className="label">
-                                                <span className="day-badge">Day {day}</span><br />{img.theme}
-                                            </div>
+                                            <div className="label"><span className="day-badge">Day {day}</span><br />{img.theme}</div>
                                         </div>
                                     ))}
                             </div>
@@ -677,19 +653,20 @@ function App() {
                     )}
 
                     <div style={{ textAlign: "center", marginTop: "1rem" }}>
-                        <button className="btn-secondary" onClick={resetToInput}>
-                            Generate Another
-                        </button>
+                        <button className="btn-secondary" onClick={resetToInput}>Generate Another</button>
                     </div>
                 </>
             )}
 
-            {/* Lightbox */}
             {lightbox && (
                 <div className="lightbox" onClick={() => setLightbox(null)}>
                     <img src={lightbox} alt="Preview" />
                 </div>
             )}
+
+            <div className="footer">
+                MS. READ &copy; {new Date().getFullYear()} &mdash; Powered by BettieAI &mdash; <a href="https://www.msreadshop.com" target="_blank">msreadshop.com</a>
+            </div>
         </div>
     );
 }

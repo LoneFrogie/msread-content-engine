@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+__pycache__
+*.pyc
+generated_images/
+output/
+*.zip
+README.md
+.dockerignore

@@ -7,7 +7,7 @@ AI-powered 30-day social media content calendar generator for [MS. READ](https:/
 - 13 AI-generated editorial images (via Nano Banana / Google Gemini)
 - Downloadable as a single zip file
 
-## Quick Start
+## Quick Start (Local)
 
 ```bash
 # 1. Clone
@@ -17,16 +17,31 @@ cd msread-content-engine
 # 2. Install
 pip install -r requirements.txt
 
-# 3. Add your API key
-cp .env.example .env
-# Edit .env and add your GOOGLE_AI_API_KEY
-# Get a free key at: https://aistudio.google.com/apikey
-
-# 4. Run
+# 3. Run (API key is pre-configured)
 python app.py
 ```
 
-Open **http://localhost:8001** in your browser.
+Open **http://localhost:8001** — no API key setup needed.
+
+## Deploy to Google Cloud Run
+
+One command to deploy to the cloud. Your colleagues get a public URL.
+
+```bash
+# Prerequisites (one-time):
+# 1. Install gcloud CLI: https://cloud.google.com/sdk/docs/install
+# 2. gcloud auth login
+# 3. gcloud config set project YOUR_PROJECT_ID
+
+# Deploy:
+./deploy.sh
+```
+
+This will:
+- Build a Docker container
+- Deploy to Cloud Run (Singapore region — closest to Malaysia)
+- Give you a public URL like `https://msread-content-engine-xxxxx-as.a.run.app`
+- Share that URL with your team — no setup required on their end
 
 ## How It Works
 
@@ -34,17 +49,6 @@ Open **http://localhost:8001** in your browser.
 2. **AI adapts the content** — Gemini rewrites all 30 days, blog, captions, and image prompts to match your brief (~60s)
 3. **Images generate live** — 13 editorial photos created via Nano Banana, visible in real-time (~2.5 min)
 4. **Download** — Full zip (Excel + images) or Excel only
-
-## Screenshots
-
-### Input — Creative Direction
-Enter your campaign focus, target products, themes, or goals. Example briefs are provided as quick-start chips.
-
-### Progress — Live Generation
-Real-time progress bar with phase indicators. Image thumbnails appear as each one completes.
-
-### Results — Download
-Full image gallery with lightbox. Download as zip or Excel only.
 
 ## Tech Stack
 
@@ -54,16 +58,7 @@ Full image gallery with lightbox. Download as zip or Excel only.
 - **AI — Images:** Nano Banana / Gemini 2.5 Flash Image (editorial photography)
 - **Excel:** openpyxl (6 branded sheets with styling)
 - **Progress:** Server-Sent Events (SSE)
-
-## API Key
-
-This app uses Google's Gemini API for both text and image generation.
-
-1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-2. Click "Create API Key"
-3. Copy the key into your `.env` file
-
-The free tier supports image generation with rate limiting (10 requests/minute).
+- **Hosting:** Google Cloud Run (serverless, auto-scaling)
 
 ## Project Structure
 
@@ -73,24 +68,12 @@ msread-content-engine/
 ├── engine.py           # Content generation pipeline
 ├── templates/
 │   └── index.html      # React SPA (MS. READ branded UI)
+├── Dockerfile          # Cloud Run container
+├── deploy.sh           # One-command deploy script
 ├── requirements.txt
 ├── .env.example
 └── README.md
 ```
-
-## Team Access
-
-Anyone on your network can access the app:
-
-```bash
-# Start the server
-python app.py
-
-# Share with colleagues
-# They open: http://<your-ip>:8001
-```
-
-Only the host machine needs the API key. Colleagues just open the URL.
 
 ## License
 
