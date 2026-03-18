@@ -750,7 +750,7 @@ function App() {
         setEvents([]);
         setImages({});
         setCurrentPhase(m === "sku" ? "fetching_product" : "adapting");
-        setImageProgress({ current: 0, total: m === "sku" ? 4 : 13 });
+        setImageProgress({ current: 0, total: m === "sku" ? 4 : 30 });
         setStartTime(Date.now());
         setEndTime(null);
         setProductPreview(null);
@@ -918,9 +918,9 @@ function App() {
                                 <div className="results-summary">
                                     <div className="stat-card"><div className="value">6</div><div className="label">Excel Sheets</div></div>
                                     <div className="stat-card"><div className="value">30</div><div className="label">Days of Content</div></div>
-                                    <div className="stat-card"><div className="value">13</div><div className="label">AI Images</div></div>
-                                    <div className="stat-card"><div className="value">1</div><div className="label">SEO Blog Post</div></div>
-                                    <div className="stat-card"><div className="value">4</div><div className="label">FB Captions</div></div>
+                                    <div className="stat-card"><div className="value">30</div><div className="label">AI Images</div></div>
+                                    <div className="stat-card"><div className="value">4</div><div className="label">SEO Blog Posts</div></div>
+                                    <div className="stat-card"><div className="value">40</div><div className="label">FB Captions</div></div>
                                 </div>
                             </div>
                         </>
@@ -1133,7 +1133,9 @@ function App() {
                                 <>
                                     <div className="stat-card"><div className="value">6</div><div className="label">Excel Sheets</div></div>
                                     <div className="stat-card"><div className="value">30</div><div className="label">Days Planned</div></div>
-                                    <div className="stat-card"><div className="value">{imagesDone}</div><div className="label">Images</div></div>
+                                    <div className="stat-card"><div className="value">{imagesDone}</div><div className="label">AI Images</div></div>
+                                    <div className="stat-card"><div className="value">4</div><div className="label">Blog Posts</div></div>
+                                    <div className="stat-card"><div className="value">40</div><div className="label">FB Captions</div></div>
                                 </>
                             )}
                             {duration && (

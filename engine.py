@@ -91,16 +91,18 @@ def _add_title_block(ws, title, subtitle, start_row=1):
 # PHASE 1: Generate adapted content via Gemini text model
 # ═══════════════════════════════════════════════════════════════
 
-CONTENT_ADAPTATION_PROMPT = """You are a social media strategist for MS. READ, Malaysia's leading plus-size fashion brand (UK sizes 10-24+, founded 1997).
-
-The user has provided a CREATIVE DIRECTION for this month's content calendar. Adapt the 30-day content plan to match their vision.
-
-BRAND RULES (never break these):
+BRAND_RULES = """BRAND RULES (never break these):
 - Voice: Warm, empowering, inclusive, confident
 - NEVER use diet culture language or apologetic tone about size
 - Target: Women 25-55, Malaysia & Singapore
 - Always mention size range UK 10-24+
 - CTA should direct to msreadshop.com or WhatsApp
+- Use Malaysian English nuances"""
+
+# ── Call 1: Calendar + Trends + Hashtag Bank ──
+PROMPT_CALENDAR = """You are a social media strategist for MS. READ, Malaysia's leading plus-size fashion brand (UK sizes 10-24+, founded 1997).
+
+{brand_rules}
 
 CREATIVE DIRECTION FROM USER:
 {creative_brief}
@@ -108,53 +110,201 @@ CREATIVE DIRECTION FROM USER:
 Generate a JSON object with these keys:
 
 1. "title_subtitle": Brief subtitle for the calendar (e.g., "Raya Collection Focus — March 2026")
-2. "trends": Array of 3 trend objects, each with: "name", "platform", "audio", "description", "adaptation", "engagement", "frequency"
-3. "calendar": Array of 30 day objects, each with: "day" (1-30), "weekday", "date", "platforms", "format", "content_type", "hook", "trend_connection", "value_body", "cta", "audio", "hashtags"
-4. "blog": Object with: "title", "keyword", "problem", "agitate", "solution", "action_steps", "cta"
-5. "social_copy": Array of 4 caption objects, each with: "post_num", "date", "theme", "caption", "hashtags"
-6. "image_prompts": Array of 13 image prompt objects, each with: "day", "date", "theme", "prompt" (detailed image generation prompt, 2-3 sentences, describe the scene visually), "key_elements", "colors"
 
-Start dates from {start_date}. Use Malaysian English nuances. Make hooks attention-grabbing and specific to the creative direction.
+2. "hashtag_bank": Object with:
+   - "core": Array of 5-7 hashtags that MUST appear on EVERY single post (brand identity hashtags like #MSRead #FashionThatFits etc.)
+   - "campaign": Array of 5-8 campaign-specific hashtags for this creative direction
+   - "engagement": Array of 5-8 engagement-driving hashtags (#OOTD, #StyleInspo etc.)
+   - "local": Array of 5-8 Malaysian/local hashtags
+
+3. "trends": Array of 3 trend objects, each with: "name", "platform", "audio", "description", "adaptation", "engagement", "frequency"
+
+4. "calendar": Array of 30 day objects, each with: "day" (1-30), "weekday", "date", "platforms", "format", "content_type", "hook", "trend_connection", "value_body", "cta", "audio", "hashtags"
+   IMPORTANT: Every day's "hashtags" MUST include ALL core hashtags from the hashtag_bank, plus a selection of campaign/engagement/local hashtags.
+
+5. "image_prompts": Array of 30 image prompt objects (ONE per day), each with: "day" (1-30), "date", "theme", "prompt" (detailed image generation prompt, 2-3 sentences, visually descriptive), "key_elements", "colors"
+
+Start dates from {start_date}. Make hooks attention-grabbing and specific to the creative direction.
 
 Respond with ONLY valid JSON, no markdown code fences."""
 
+# ── Call 2: Blog Posts (4) ──
+PROMPT_BLOGS = """You are a senior content writer for MS. READ, Malaysia's leading plus-size fashion brand (UK sizes 10-24+, founded 1997).
+
+{brand_rules}
+
+CREATIVE DIRECTION:
+{creative_brief}
+
+CORE HASHTAGS (include in all content):
+{core_hashtags}
+
+Generate a JSON object with ONE key:
+
+"blogs": Array of 4 blog post objects. Each blog should cover a DIFFERENT angle of the creative direction. Each object has:
+  - "title": SEO-optimized blog title
+  - "keyword": Primary target keyword
+  - "meta_description": 155-character SEO meta description
+  - "problem": The problem/pain point (150 words)
+  - "agitate": Agitate the problem (150 words)
+  - "solution": MS. READ's solution (200 words)
+  - "action_steps": Practical tips/steps (200 words)
+  - "cta": Call to action (50 words)
+  - "internal_links": Array of 3 suggested product category links
+
+Blog topics should be:
+1. Main campaign theme overview
+2. Styling guide / how-to
+3. Occasion-specific guide (e.g., office, events, casual)
+4. Confidence / empowerment angle
+
+Respond with ONLY valid JSON."""
+
+# ── Call 3: Social Captions (40) ──
+PROMPT_CAPTIONS = """You are a social media copywriter for MS. READ, Malaysia's leading plus-size fashion brand (UK sizes 10-24+, founded 1997).
+
+{brand_rules}
+
+CREATIVE DIRECTION:
+{creative_brief}
+
+CORE HASHTAGS (MUST appear on EVERY caption):
+{core_hashtags}
+
+CAMPAIGN HASHTAGS (use at least 3 per caption):
+{campaign_hashtags}
+
+Generate a JSON object with ONE key:
+
+"social_copy": Array of 40 Facebook/Meta caption objects. Cover the full 30-day period with varied themes. Each object has:
+  - "post_num": Sequential number (1-40)
+  - "date": Date from the calendar period starting {start_date}
+  - "theme": Post theme/topic
+  - "caption": Full caption with emojis (150-300 words, engaging, Malaysian English)
+  - "hashtags": String of 15-20 hashtags (MUST include ALL core hashtags + at least 3 campaign hashtags + relevant engagement/local hashtags)
+
+Vary the content types across:
+- Product spotlights (10 posts)
+- Styling tips & outfit ideas (8 posts)
+- Behind-the-scenes & brand story (4 posts)
+- Customer testimonials / UGC prompts (5 posts)
+- Trend-based / timely content (5 posts)
+- Engagement / polls / questions (4 posts)
+- Sales / promotions / new arrivals (4 posts)
+
+Respond with ONLY valid JSON."""
+
+
+def _gemini_call(client, prompt: str, max_tokens: int = 32000, temperature: float = 0.7) -> dict:
+    """Make a Gemini text call with retry on JSON parse failure."""
+    import re as _re
+    last_error = None
+    for attempt, temp in enumerate([temperature, 0.4]):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=temp,
+                    max_output_tokens=max_tokens,
+                    response_mime_type="application/json",
+                ),
+            )
+            text = ""
+            for part in response.candidates[0].content.parts:
+                if part.text:
+                    text += part.text
+            text = text.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1]
+            if text.endswith("```"):
+                text = text.rsplit("```", 1)[0]
+            text = text.strip()
+
+            # Try direct parse
+            try:
+                return json.loads(text)
+            except json.JSONDecodeError:
+                pass
+            # Fix trailing commas
+            fixed = _re.sub(r',\s*([\]}])', r'\1', text)
+            try:
+                return json.loads(fixed)
+            except json.JSONDecodeError:
+                pass
+            # Close truncated JSON
+            repaired = fixed.rstrip()
+            open_b = repaired.count('{') - repaired.count('}')
+            open_k = repaired.count('[') - repaired.count(']')
+            repaired += ']' * max(0, open_k) + '}' * max(0, open_b)
+            return json.loads(repaired)
+        except (json.JSONDecodeError, ValueError) as e:
+            last_error = e
+            if attempt == 0:
+                time.sleep(2)
+    raise last_error
+
 
 def generate_adapted_content(client, creative_brief: str, start_date: str, callback: Callable):
-    """Use Gemini text model to adapt content to the creative brief."""
-    callback("status", {"phase": "adapting", "message": "Adapting content to your creative direction..."})
+    """Use 3 Gemini calls to generate the full content pack."""
 
-    prompt = CONTENT_ADAPTATION_PROMPT.format(
+    # ── Call 1: Calendar + Trends + Hashtag Bank + 30 Image Prompts ──
+    callback("status", {"phase": "adapting", "message": "Generating 30-day calendar, trends, hashtags & image prompts..."})
+    cal_prompt = PROMPT_CALENDAR.format(
+        brand_rules=BRAND_RULES,
         creative_brief=creative_brief,
         start_date=start_date,
     )
-
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.7,
-            max_output_tokens=16000,
-            response_mime_type="application/json",
-        ),
-    )
-
-    text = ""
-    for part in response.candidates[0].content.parts:
-        if part.text:
-            text += part.text
-
-    # Strip markdown code fences if present
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-    if text.endswith("```"):
-        text = text.rsplit("```", 1)[0]
-    text = text.strip()
-
-    content = json.loads(text)
-    # Sanitize: Gemini sometimes returns lists where strings are expected
+    content = _gemini_call(client, cal_prompt, max_tokens=60000)
     content = _sanitize_content(content)
-    callback("status", {"phase": "adapted", "message": "Content adapted to your brief"})
+    callback("status", {"phase": "adapting", "message": "Calendar done. Generating 4 blog posts..."})
+
+    # Extract hashtag bank for consistency
+    hashtag_bank = content.get("hashtag_bank", {})
+    core_hashtags = ", ".join(hashtag_bank.get("core", ["#MSRead", "#FashionThatFits", "#PlusSizeFashion"]))
+    campaign_hashtags = ", ".join(hashtag_bank.get("campaign", []))
+
+    # ── Call 2: 4 Blog Posts ──
+    blog_prompt = PROMPT_BLOGS.format(
+        brand_rules=BRAND_RULES,
+        creative_brief=creative_brief,
+        core_hashtags=core_hashtags,
+    )
+    blog_result = _gemini_call(client, blog_prompt, max_tokens=32000)
+    content["blogs"] = blog_result.get("blogs", [])
+    # Keep backward compat: also store first blog as "blog"
+    if content["blogs"]:
+        content["blog"] = content["blogs"][0]
+    callback("status", {"phase": "adapting", "message": "Blogs done. Generating 40 social captions..."})
+
+    # ── Call 3: 40 Social Captions ──
+    caption_prompt = PROMPT_CAPTIONS.format(
+        brand_rules=BRAND_RULES,
+        creative_brief=creative_brief,
+        core_hashtags=core_hashtags,
+        campaign_hashtags=campaign_hashtags,
+        start_date=start_date,
+    )
+    caption_result = _gemini_call(client, caption_prompt, max_tokens=60000)
+    content["social_copy"] = caption_result.get("social_copy", [])
+
+    # Sanitize new content
+    for blog in content.get("blogs", []):
+        for key in blog:
+            if isinstance(blog[key], list):
+                blog[key] = ", ".join(str(v) for v in blog[key])
+            elif blog[key] is None:
+                blog[key] = ""
+    for cap in content.get("social_copy", []):
+        for key in ["theme", "caption", "hashtags", "date"]:
+            if key in cap:
+                val = cap[key]
+                if isinstance(val, list):
+                    cap[key] = ", ".join(str(v) for v in val)
+                elif val is None:
+                    cap[key] = ""
+
+    callback("status", {"phase": "adapted", "message": "All content generated: 30-day calendar, 4 blogs, 40 captions, 30 image prompts"})
     return content
 
 
@@ -283,49 +433,70 @@ def build_excel(content: dict, output_dir: Path, callback: Callable) -> Path:
         ws2.column_dimensions[col].width = w
     ws2.freeze_panes = "A4"
 
-    # ── SHEET 3: Blog Post ──
-    ws3 = wb.create_sheet("Blog Post")
+    # ── SHEET 3: Blog Posts (4) ──
+    ws3 = wb.create_sheet("Blog Posts")
     ws3.sheet_properties.tabColor = "2D6A4F"
 
-    blog = content.get("blog", {})
-    r = _add_title_block(ws3, "SEO Blog Post", f"Keyword: {blog.get('keyword', '')}")
+    blogs = content.get("blogs", [])
+    if not blogs and content.get("blog"):
+        blogs = [content["blog"]]
 
-    meta = [["Title", blog.get("title", "")], ["Keyword", blog.get("keyword", "")], ["Framework", "Problem-Agitate-Solution (PAS)"]]
-    for item in meta:
-        ws3.cell(row=r, column=1, value=item[0]).font = body_font_bold
-        ws3.cell(row=r, column=1).fill = PatternFill("solid", fgColor=LIGHT_GOLD)
-        ws3.cell(row=r, column=2, value=item[1]).font = body_font
+    r = _add_title_block(ws3, "SEO Blog Posts", f"{len(blogs)} Blog Posts — Problem-Agitate-Solution (PAS) Framework")
+
+    for blog_idx, blog in enumerate(blogs):
+        # Blog header
+        ws3.cell(row=r, column=1, value=f"BLOG {blog_idx + 1}").font = Font(name="Arial", bold=True, color=WHITE, size=12)
+        ws3.cell(row=r, column=1).fill = PatternFill("solid", fgColor=BURGUNDY)
+        ws3.cell(row=r, column=2, value=blog.get("title", "")).font = Font(name="Arial", bold=True, color=WHITE, size=12)
+        ws3.cell(row=r, column=2).fill = PatternFill("solid", fgColor=BURGUNDY)
         ws3.cell(row=r, column=1).border = thin_border
         ws3.cell(row=r, column=2).border = thin_border
         r += 1
 
-    r += 1
-    sections = [
-        ["PROBLEM", blog.get("problem", "")],
-        ["AGITATE", blog.get("agitate", "")],
-        ["SOLUTION", blog.get("solution", "")],
-        ["ACTION STEPS", blog.get("action_steps", "")],
-        ["CTA", blog.get("cta", "")],
-    ]
-    for section in sections:
-        ws3.cell(row=r, column=1, value=section[0]).font = Font(name="Arial", bold=True, color=BURGUNDY, size=11)
-        ws3.cell(row=r, column=1).fill = PatternFill("solid", fgColor=LIGHT_GOLD)
-        ws3.cell(row=r, column=1).border = thin_border
-        ws3.cell(row=r, column=1).alignment = Alignment(vertical="top")
-        ws3.cell(row=r, column=2, value=section[1]).font = body_font
-        ws3.cell(row=r, column=2).alignment = wrap_align
-        ws3.cell(row=r, column=2).border = thin_border
-        ws3.row_dimensions[r].height = max(80, len(str(section[1])) // 3)
-        r += 1
+        meta = [
+            ["Title", blog.get("title", "")],
+            ["Keyword", blog.get("keyword", "")],
+            ["Meta Description", blog.get("meta_description", "")],
+            ["Internal Links", blog.get("internal_links", "")],
+        ]
+        for item in meta:
+            ws3.cell(row=r, column=1, value=item[0]).font = body_font_bold
+            ws3.cell(row=r, column=1).fill = PatternFill("solid", fgColor=LIGHT_GOLD)
+            ws3.cell(row=r, column=2, value=item[1]).font = body_font
+            ws3.cell(row=r, column=1).border = thin_border
+            ws3.cell(row=r, column=2).border = thin_border
+            ws3.cell(row=r, column=2).alignment = wrap_align
+            r += 1
+
+        sections = [
+            ["PROBLEM", blog.get("problem", "")],
+            ["AGITATE", blog.get("agitate", "")],
+            ["SOLUTION", blog.get("solution", "")],
+            ["ACTION STEPS", blog.get("action_steps", "")],
+            ["CTA", blog.get("cta", "")],
+        ]
+        for section in sections:
+            ws3.cell(row=r, column=1, value=section[0]).font = Font(name="Arial", bold=True, color=BURGUNDY, size=11)
+            ws3.cell(row=r, column=1).fill = PatternFill("solid", fgColor=LIGHT_GOLD)
+            ws3.cell(row=r, column=1).border = thin_border
+            ws3.cell(row=r, column=1).alignment = Alignment(vertical="top")
+            ws3.cell(row=r, column=2, value=section[1]).font = body_font
+            ws3.cell(row=r, column=2).alignment = wrap_align
+            ws3.cell(row=r, column=2).border = thin_border
+            ws3.row_dimensions[r].height = max(80, len(str(section[1])) // 3)
+            r += 1
+
+        r += 1  # spacing between blogs
 
     ws3.column_dimensions["A"].width = 18
     ws3.column_dimensions["B"].width = 100
 
-    # ── SHEET 4: Social Copy ──
+    # ── SHEET 4: Social Copy (40 captions) ──
     ws4 = wb.create_sheet("Social Copy")
     ws4.sheet_properties.tabColor = GOLD
 
-    r = _add_title_block(ws4, "Facebook / Meta Captions", "Week 1 Highlights — Malaysian English, Professional Yet Relatable")
+    social_copy = content.get("social_copy", [])
+    r = _add_title_block(ws4, "Facebook / Meta Captions", f"{len(social_copy)} Captions — 30-Day Campaign")
 
     copy_headers = ["Post #", "Date", "Post Theme", "Full Caption", "Hashtags"]
     for c, h in enumerate(copy_headers, 1):
@@ -333,7 +504,7 @@ def build_excel(content: dict, output_dir: Path, callback: Callable) -> Path:
     _style_header_row(ws4, r, len(copy_headers))
     r += 1
 
-    for i, cap in enumerate(content.get("social_copy", [])):
+    for i, cap in enumerate(social_copy):
         vals = [cap.get("post_num", i+1), cap.get("date", ""), cap.get("theme", ""),
                 cap.get("caption", ""), cap.get("hashtags", "")]
         for c, v in enumerate(vals, 1):
@@ -399,11 +570,12 @@ def build_excel(content: dict, output_dir: Path, callback: Callable) -> Path:
 
     ws6.cell(row=r, column=1, value="HASHTAG BANKS").font = accent_font
     r += 1
+    hashtag_bank = content.get("hashtag_bank", {})
     hashtag_sets = [
-        ["Primary (Every Post)", "#MSRead #FashionThatFits #PlusSizeFashion #CurvyConfidence"],
-        ["Body Positivity", "#BodyPositive #StyleNotSize #SizeInclusive #EveryBodyIsBeautiful #CurvyAndProud"],
-        ["Malaysian / Local", "#PlusSizeMalaysia #MalaysianFashion #KLFashion #ShopLocal #MalaysianBrand"],
-        ["Engagement-Driving", "#OOTD #WhatIWore #StyleInspo #FashionOver30 #RealWomenRealStyle #FitCheck"],
+        ["Core (EVERY Post)", " ".join(hashtag_bank.get("core", ["#MSRead", "#FashionThatFits", "#PlusSizeFashion"]))],
+        ["Campaign-Specific", " ".join(hashtag_bank.get("campaign", []))],
+        ["Engagement-Driving", " ".join(hashtag_bank.get("engagement", ["#OOTD", "#StyleInspo"]))],
+        ["Malaysian / Local", " ".join(hashtag_bank.get("local", ["#PlusSizeMalaysia", "#MalaysianFashion"]))],
     ]
     for hs in hashtag_sets:
         ws6.cell(row=r, column=1, value=hs[0]).font = body_font_bold
