@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MS. READ Content Engine</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --navy: #1B2A4A;
+            --gold: #C8A951;
+            --gold-light: #e8d5a0;
+            --burgundy: #7A1F3D;
+            --cream: #FFF8F0;
+            --dark-bg: #0a0a0f;
+            --card-bg: #141419;
+            --card-border: #2a2a35;
+            --text-primary: #f0ece4;
+            --text-secondary: #9a9a9a;
+            --success: #2D6A4F;
+            --error: #d32f2f;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 3rem 0 2rem;
+            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 3rem;
+        }
+        .header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.4rem;
+            color: var(--gold);
+            margin-bottom: 0.3rem;
+            letter-spacing: 2px;
+        }
+        .header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 300;
+        }
+
+        /* Card */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        .card h2 {
+            font-family: 'Playfair Display', serif;
+            color: var(--gold);
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Form */
+        .brief-input {
+            width: 100%;
+            min-height: 160px;
+            background: #0d0d12;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.95rem;
+            padding: 1rem;
+            resize: vertical;
+            line-height: 1.6;
+            transition: border-color 0.2s;
+        }
+        .brief-input:focus {
+            outline: none;
+            border-color: var(--gold);
+        }
+        .brief-input::placeholder { color: #555; }
+
+        .examples {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        .example-chip {
+            background: transparent;
+            border: 1px solid var(--card-border);
+            color: var(--text-secondary);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'DM Sans', sans-serif;
+        }
+        .example-chip:hover {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        /* Button */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gold) 0%, #a88a3a 100%);
+            color: var(--navy);
+            border: none;
+            padding: 0.9rem 2.5rem;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1.5rem;
+            transition: all 0.2s;
+            letter-spacing: 0.5px;
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(200,169,81,0.3); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--gold);
+            border: 1px solid var(--gold);
+            padding: 0.7rem 1.8rem;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-secondary:hover { background: rgba(200,169,81,0.1); }
+
+        .btn-download {
+            background: linear-gradient(135deg, var(--success) 0%, #1e5038 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2.5rem;
+            border-radius: 8px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn-download:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(45,106,79,0.4); }
+
+        /* Progress */
+        .progress-bar-container {
+            background: #1a1a22;
+            border-radius: 20px;
+            height: 8px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--gold), var(--gold-light));
+            border-radius: 20px;
+            transition: width 0.5s ease;
+        }
+
+        .phase-indicator {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+        }
+        .phase-step {
+            flex: 1;
+            text-align: center;
+            padding: 0.8rem 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 3px solid var(--card-border);
+            transition: all 0.3s;
+        }
+        .phase-step.active {
+            color: var(--gold);
+            border-bottom-color: var(--gold);
+        }
+        .phase-step.done {
+            color: var(--success);
+            border-bottom-color: var(--success);
+        }
+
+        /* Image Grid */
+        .image-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .image-slot {
+            aspect-ratio: 1;
+            background: #1a1a22;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+            transition: border-color 0.3s;
+        }
+        .image-slot.generating {
+            border-color: var(--gold);
+            animation: pulse-border 1.5s infinite;
+        }
+        .image-slot.done { border-color: var(--success); }
+        .image-slot.failed { border-color: var(--error); }
+        .image-slot img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            animation: fadeIn 0.5s ease;
+        }
+        .image-slot .label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.85));
+            padding: 2rem 0.6rem 0.5rem;
+            font-size: 0.7rem;
+            color: var(--cream);
+        }
+        .image-slot .day-badge {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+        .image-slot .theme-name {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.3rem;
+        }
+
+        @keyframes pulse-border {
+            0%, 100% { border-color: var(--gold); }
+            50% { border-color: transparent; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 24px; height: 24px;
+            border: 2px solid var(--card-border);
+            border-top-color: var(--gold);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Log */
+        .log-panel {
+            background: #0d0d12;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'DM Sans', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 1rem;
+        }
+        .log-entry { padding: 0.15rem 0; }
+        .log-entry.success { color: var(--success); }
+        .log-entry.error { color: var(--error); }
+        .log-entry .time { color: #555; margin-right: 0.5rem; }
+
+        /* Results */
+        .results-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        .stat-card {
+            background: #1a1a22;
+            border-radius: 8px;
+            padding: 1.2rem;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem;
+            color: var(--gold);
+        }
+        .stat-card .label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.3rem;
+        }
+
+        .download-section {
+            text-align: center;
+            padding: 2rem 0;
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Lightbox */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            cursor: pointer;
+        }
+        .lightbox img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 8px;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container { padding: 1rem; }
+            .header h1 { font-size: 1.6rem; }
+            .image-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+const EXAMPLE_BRIEFS = [
+    "Focus on Raya collection. Highlight baju kurung and modest fashion in emerald, pastel pink, and gold. Target working women preparing for Hari Raya celebrations.",
+    "Back-to-work January campaign. Power dressing for plus-size corporate women. Blazers, structured dresses, wide-leg trousers. Empowering and professional.",
+    "Summer casual collection. Lightweight fabrics, linen dresses, vacation-ready outfits. Beach to brunch styling for curvy women. Fun and carefree energy.",
+    "New activewear line launch. Gym-to-street styling for plus-size women. Bold colors, supportive fits, confidence-boosting athletic wear.",
+    "Year-end party season. Evening gowns, cocktail dresses, festive outfits. Sparkle, glamour, and holiday celebration vibes for every size.",
+];
+
+function App() {
+    const [view, setView] = useState("input"); // input | progress | results
+    const [brief, setBrief] = useState("");
+    const [sessionId, setSessionId] = useState(null);
+    const [events, setEvents] = useState([]);
+    const [images, setImages] = useState({});
+    const [currentPhase, setCurrentPhase] = useState("");
+    const [imageProgress, setImageProgress] = useState({ current: 0, total: 13 });
+    const [error, setError] = useState(null);
+    const [lightbox, setLightbox] = useState(null);
+    const [startTime, setStartTime] = useState(null);
+    const [endTime, setEndTime] = useState(null);
+    const logRef = useRef(null);
+
+    // Auto-scroll log
+    useEffect(() => {
+        if (logRef.current) {
+            logRef.current.scrollTop = logRef.current.scrollHeight;
+        }
+    }, [events]);
+
+    async function handleGenerate() {
+        if (!brief.trim()) return;
+        setError(null);
+        setEvents([]);
+        setImages({});
+        setCurrentPhase("adapting");
+        setImageProgress({ current: 0, total: 13 });
+        setStartTime(Date.now());
+        setEndTime(null);
+
+        try {
+            const res = await fetch("/api/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ creative_brief: brief }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                setError(err.detail || "Failed to start generation");
+                return;
+            }
+
+            const { session_id } = await res.json();
+            setSessionId(session_id);
+            setView("progress");
+
+            // Start SSE
+            const eventSource = new EventSource(`/api/progress/${session_id}`);
+            eventSource.onmessage = (e) => {
+                const event = JSON.parse(e.data);
+
+                if (event.type === "stream_end") {
+                    eventSource.close();
+                    if (event.status === "done") {
+                        setEndTime(Date.now());
+                        setView("results");
+                    } else if (event.status === "error") {
+                        setError("Generation failed. Check the log for details.");
+                    }
+                    return;
+                }
+
+                setEvents((prev) => [...prev, event]);
+
+                if (event.type === "status" && event.phase) {
+                    setCurrentPhase(event.phase);
+                }
+
+                if (event.type === "image_start") {
+                    setImageProgress({ current: event.index, total: event.total });
+                    setImages((prev) => ({
+                        ...prev,
+                        [event.day]: { status: "generating", theme: event.theme },
+                    }));
+                }
+
+                if (event.type === "image_done") {
+                    setImageProgress({ current: event.index + 1, total: event.total });
+                    setImages((prev) => ({
+                        ...prev,
+                        [event.day]: {
+                            status: event.success ? "done" : "failed",
+                            theme: event.theme,
+                            filename: event.filename,
+                        },
+                    }));
+                }
+
+                if (event.type === "error") {
+                    setError(event.message);
+                }
+            };
+
+            eventSource.onerror = () => {
+                eventSource.close();
+            };
+
+        } catch (err) {
+            setError("Network error: " + err.message);
+        }
+    }
+
+    function resetToInput() {
+        setView("input");
+        setBrief("");
+        setSessionId(null);
+        setEvents([]);
+        setImages({});
+        setCurrentPhase("");
+        setError(null);
+        setStartTime(null);
+        setEndTime(null);
+    }
+
+    const phases = [
+        { key: "adapting", label: "Adapting Content" },
+        { key: "building_excel", label: "Building Excel" },
+        { key: "generating_images", label: "Generating Images" },
+        { key: "embedding", label: "Embedding" },
+        { key: "packaging", label: "Packaging" },
+        { key: "done", label: "Done" },
+    ];
+
+    const phaseOrder = phases.map(p => p.key);
+    const currentPhaseIdx = phaseOrder.indexOf(currentPhase);
+
+    const overallProgress = (() => {
+        if (currentPhase === "done") return 100;
+        if (currentPhase === "packaging") return 95;
+        if (currentPhase === "embedding") return 90;
+        if (currentPhase === "generating_images") {
+            return 20 + (imageProgress.current / Math.max(imageProgress.total, 1)) * 70;
+        }
+        if (currentPhase === "building_excel" || currentPhase === "excel_done") return 18;
+        if (currentPhase === "adapted" || currentPhase === "adapting") return 8;
+        return 0;
+    })();
+
+    const duration = endTime && startTime ? Math.round((endTime - startTime) / 1000) : null;
+    const imagesDone = Object.values(images).filter(i => i.status === "done").length;
+    const imagesFailed = Object.values(images).filter(i => i.status === "failed").length;
+
+    return (
+        <div className="container">
+            <div className="header">
+                <h1>MS. READ</h1>
+                <p>30-Day Viral-to-Value Content Engine</p>
+            </div>
+
+            {error && (
+                <div className="card" style={{ borderColor: "var(--error)" }}>
+                    <p style={{ color: "var(--error)" }}>{error}</p>
+                </div>
+            )}
+
+            {/* ── INPUT VIEW ── */}
+            {view === "input" && (
+                <>
+                    <div className="card">
+                        <h2>Creative Direction</h2>
+                        <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "1rem" }}>
+                            Tell the engine what you want this month's content to focus on. Be specific about campaigns, products, themes, or goals.
+                        </p>
+                        <textarea
+                            className="brief-input"
+                            placeholder={"Example: Focus on our Raya collection launch. Highlight modest fashion pieces — baju kurung, flowing maxi dresses, hijab-friendly designs in pastel and jewel tones. Campaign goal: drive pre-orders and in-store visits during Ramadan. Target working women 25-45 who want stylish, modest plus-size fashion for Hari Raya celebrations and open houses."}
+                            value={brief}
+                            onChange={(e) => setBrief(e.target.value)}
+                        />
+                        <div className="examples">
+                            {EXAMPLE_BRIEFS.map((ex, i) => (
+                                <button key={i} className="example-chip" onClick={() => setBrief(ex)}>
+                                    {ex.slice(0, 40)}...
+                                </button>
+                            ))}
+                        </div>
+                        <button className="btn-primary" onClick={handleGenerate} disabled={!brief.trim()}>
+                            Generate Content Engine
+                        </button>
+                    </div>
+
+                    <div className="card">
+                        <h2>What You'll Get</h2>
+                        <div className="results-summary">
+                            <div className="stat-card"><div className="value">6</div><div className="label">Excel Sheets</div></div>
+                            <div className="stat-card"><div className="value">30</div><div className="label">Days of Content</div></div>
+                            <div className="stat-card"><div className="value">13</div><div className="label">AI Images</div></div>
+                            <div className="stat-card"><div className="value">1</div><div className="label">SEO Blog Post</div></div>
+                            <div className="stat-card"><div className="value">4</div><div className="label">FB Captions</div></div>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* ── PROGRESS VIEW ── */}
+            {view === "progress" && (
+                <>
+                    <div className="card">
+                        <h2>Generating Your Content Pack</h2>
+
+                        <div className="phase-indicator">
+                            {phases.map((p, i) => (
+                                <div key={p.key} className={`phase-step ${i < currentPhaseIdx ? "done" : ""} ${i === currentPhaseIdx ? "active" : ""}`}>
+                                    {i < currentPhaseIdx ? "\u2713 " : ""}{p.label}
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="progress-bar-container">
+                            <div className="progress-bar-fill" style={{ width: `${overallProgress}%` }} />
+                        </div>
+                        <p style={{ textAlign: "center", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
+                            {Math.round(overallProgress)}% complete
+                            {currentPhase === "generating_images" && ` — Image ${imageProgress.current}/${imageProgress.total}`}
+                        </p>
+                    </div>
+
+                    {Object.keys(images).length > 0 && (
+                        <div className="card">
+                            <h2>Image Generation ({imagesDone}/{imageProgress.total})</h2>
+                            <div className="image-grid">
+                                {Object.entries(images).sort(([a], [b]) => Number(a) - Number(b)).map(([day, img]) => (
+                                    <div key={day} className={`image-slot ${img.status}`}>
+                                        {img.status === "generating" && <div className="spinner" />}
+                                        {img.status === "done" && img.filename && (
+                                            <img
+                                                src={`/api/images/${sessionId}/${img.filename}`}
+                                                alt={img.theme}
+                                                onClick={() => setLightbox(`/api/images/${sessionId}/${img.filename}`)}
+                                                style={{ cursor: "pointer" }}
+                                            />
+                                        )}
+                                        {img.status === "failed" && (
+                                            <span style={{ color: "var(--error)", fontSize: "0.75rem" }}>Failed</span>
+                                        )}
+                                        <div className="label">
+                                            <span className="day-badge">Day {day}</span>
+                                            <br />
+                                            {img.theme}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="card">
+                        <h2>Activity Log</h2>
+                        <div className="log-panel" ref={logRef}>
+                            {events.map((e, i) => (
+                                <div key={i} className={`log-entry ${e.type === "error" ? "error" : e.success === true ? "success" : ""}`}>
+                                    <span className="time">
+                                        {new Date(e.timestamp).toLocaleTimeString()}
+                                    </span>
+                                    {e.message}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* ── RESULTS VIEW ── */}
+            {view === "results" && (
+                <>
+                    <div className="card" style={{ textAlign: "center" }}>
+                        <h2 style={{ fontSize: "1.6rem", marginBottom: "0.5rem" }}>Content Pack Ready!</h2>
+                        <p style={{ color: "var(--text-secondary)" }}>Your 30-day content engine has been generated.</p>
+
+                        <div className="results-summary">
+                            <div className="stat-card"><div className="value">6</div><div className="label">Excel Sheets</div></div>
+                            <div className="stat-card"><div className="value">30</div><div className="label">Days Planned</div></div>
+                            <div className="stat-card"><div className="value">{imagesDone}</div><div className="label">Images Generated</div></div>
+                            {duration && (
+                                <div className="stat-card">
+                                    <div className="value">{Math.floor(duration/60)}:{String(duration%60).padStart(2,'0')}</div>
+                                    <div className="label">Total Time</div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="download-section">
+                            <button className="btn-download" onClick={() => window.location.href = `/api/download/${sessionId}`}>
+                                Download Full Pack (.zip)
+                            </button>
+                            <button className="btn-download" style={{ background: "linear-gradient(135deg, var(--navy) 0%, #0f1a30 100%)" }}
+                                onClick={() => window.location.href = `/api/download-excel/${sessionId}`}>
+                                Download Excel Only
+                            </button>
+                        </div>
+                    </div>
+
+                    {Object.keys(images).length > 0 && (
+                        <div className="card">
+                            <h2>Generated Images (click to enlarge)</h2>
+                            <div className="image-grid">
+                                {Object.entries(images)
+                                    .filter(([_, img]) => img.status === "done" && img.filename)
+                                    .sort(([a], [b]) => Number(a) - Number(b))
+                                    .map(([day, img]) => (
+                                        <div key={day} className="image-slot done" style={{ cursor: "pointer" }}
+                                            onClick={() => setLightbox(`/api/images/${sessionId}/${img.filename}`)}>
+                                            <img src={`/api/images/${sessionId}/${img.filename}`} alt={img.theme} />
+                                            <div className="label">
+                                                <span className="day-badge">Day {day}</span><br />{img.theme}
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                        <button className="btn-secondary" onClick={resetToInput}>
+                            Generate Another
+                        </button>
+                    </div>
+                </>
+            )}
+
+            {/* Lightbox */}
+            {lightbox && (
+                <div className="lightbox" onClick={() => setLightbox(null)}>
+                    <img src={lightbox} alt="Preview" />
+                </div>
+            )}
+        </div>
+    );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
