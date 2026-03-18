@@ -321,32 +321,44 @@ def generate_sku_content(client, product: dict, creative_brief: str, callback: C
         creative_brief_section=creative_brief_section,
     )
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            temperature=0.7,
-            max_output_tokens=16000,
-            response_mime_type="application/json",
-        ),
-    )
+    # Try up to 2 attempts (increase tokens, lower temp on retry)
+    last_error = None
+    for attempt, (temp, tokens) in enumerate([(0.7, 32000), (0.4, 32000)]):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=temp,
+                    max_output_tokens=tokens,
+                    response_mime_type="application/json",
+                ),
+            )
 
-    text = ""
-    for part in response.candidates[0].content.parts:
-        if part.text:
-            text += part.text
+            text = ""
+            for part in response.candidates[0].content.parts:
+                if part.text:
+                    text += part.text
 
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1]
-    if text.endswith("```"):
-        text = text.rsplit("```", 1)[0]
-    text = text.strip()
+            text = text.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1]
+            if text.endswith("```"):
+                text = text.rsplit("```", 1)[0]
+            text = text.strip()
 
-    content = _parse_json_robust(text)
-    content = _sanitize_sku_content(content)
-    callback("status", {"phase": "content_generated", "message": "All content generated successfully"})
-    return content
+            content = _parse_json_robust(text)
+            content = _sanitize_sku_content(content)
+            callback("status", {"phase": "content_generated", "message": "All content generated successfully"})
+            return content
+        except (json.JSONDecodeError, ValueError) as e:
+            last_error = e
+            if attempt == 0:
+                logger.warning(f"JSON parse failed on attempt 1, retrying with lower temperature: {e}")
+                callback("status", {"phase": "generating_content", "message": "Content generation retry (formatting fix)..."})
+                time.sleep(2)
+
+    raise last_error
 
 
 def _parse_json_robust(text: str) -> dict:
