@@ -671,9 +671,36 @@ def build_sku_excel(content: dict, product: dict, output_dir: Path, callback: Ca
 # PHASE 4: Generate AI images
 # ═══════════════════════════════════════════════════════════════
 
+def _download_product_images(product: dict, max_images: int = 3) -> list:
+    """Download product images from Shopify for use as Gemini visual reference."""
+    downloaded = []
+    image_urls = product.get("image_urls", [])
+    if not image_urls and product.get("image_url"):
+        image_urls = [product["image_url"]]
+
+    for url in image_urls[:max_images]:
+        try:
+            resp = requests.get(url, timeout=15, headers={
+                "User-Agent": "Mozilla/5.0 (compatible; MSReadContentEngine/1.0)"
+            })
+            if resp.status_code == 200:
+                img = PILImage.open(BytesIO(resp.content))
+                # Resize to reasonable size for API (max 1024px)
+                if max(img.size) > 1024:
+                    ratio = 1024 / max(img.size)
+                    img = img.resize((int(img.width * ratio), int(img.height * ratio)), PILImage.LANCZOS)
+                buf = BytesIO()
+                img.save(buf, format="PNG")
+                downloaded.append(buf.getvalue())
+        except Exception:
+            continue
+
+    return downloaded
+
+
 def generate_sku_images(client, content: dict, product: dict, creative_brief: str,
                         output_dir: Path, callback: Callable) -> list:
-    """Generate product images via Nano Banana."""
+    """Generate product images via Nano Banana, using actual product photos as reference."""
     image_dir = output_dir / "images"
     thumb_dir = output_dir / "thumbnails"
     image_dir.mkdir(parents=True, exist_ok=True)
@@ -681,7 +708,14 @@ def generate_sku_images(client, content: dict, product: dict, creative_brief: st
 
     prompts = content.get("image_prompts", [])
     total = len(prompts)
-    callback("status", {"phase": "generating_images", "message": f"Generating {total} product images...", "total": total, "current": 0})
+    callback("status", {"phase": "generating_images", "message": f"Downloading product photos & generating {total} images...", "total": total, "current": 0})
+
+    # Download actual product photos for visual reference
+    ref_images = _download_product_images(product)
+    if ref_images:
+        callback("status", {"phase": "generating_images", "message": f"Downloaded {len(ref_images)} product photo(s) as reference. Generating {total} images..."})
+    else:
+        callback("status", {"phase": "generating_images", "message": f"No product photos available. Generating {total} images from text only..."})
 
     product_context = f" Product: {product['title']}, {product['product_type']}."
     if creative_brief:
@@ -700,12 +734,38 @@ def generate_sku_images(client, content: dict, product: dict, creative_brief: st
             "message": f"Generating {scene}..."
         })
 
-        full_prompt = f"{BRAND_IMAGE_PREFIX}{product_context}\n\n{p['prompt']}"
+        text_prompt = (
+            f"{BRAND_IMAGE_PREFIX}{product_context}\n\n"
+            f"IMPORTANT: Use the attached product photo(s) as reference. "
+            f"The generated image MUST feature this EXACT garment — same fabric pattern, color, print, and design details. "
+            f"Do NOT change the garment design. Show it in a new setting/styling as described below.\n\n"
+            f"{p['prompt']}"
+        )
+
+        # Build multimodal content: reference images + text prompt
+        content_parts = []
+        if ref_images:
+            # Use first image as primary reference (the main product shot)
+            content_parts.append(types.Part.from_bytes(
+                data=ref_images[0],
+                mime_type="image/png",
+            ))
+            if len(ref_images) > 1:
+                content_parts.append(types.Part.from_bytes(
+                    data=ref_images[1],
+                    mime_type="image/png",
+                ))
+            content_parts.append(types.Part.from_text(text=text_prompt))
+        else:
+            # Fallback to text-only if no product images available
+            content_parts.append(types.Part.from_text(
+                text=f"{BRAND_IMAGE_PREFIX}{product_context}\n\n{p['prompt']}"
+            ))
 
         try:
             response = client.models.generate_content(
                 model="gemini-2.5-flash-image",
-                contents=full_prompt,
+                contents=content_parts,
                 config=types.GenerateContentConfig(
                     response_modalities=["Text", "Image"],
                 ),
