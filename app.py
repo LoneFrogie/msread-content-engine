@@ -14,6 +14,8 @@ import sys
 import json
 import asyncio
 import shutil
+import base64
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 from threading import Thread
@@ -78,6 +80,7 @@ class GenerateRequest(BaseModel):
 class GenerateSkuRequest(BaseModel):
     product_url: str
     creative_brief: str = ""
+    avatar_images: list[str] = []  # base64-encoded PNG images
 
 
 @app.get("/")
@@ -143,6 +146,17 @@ async def start_sku_generation(req: GenerateSkuRequest):
     output_dir = OUTPUT_BASE / session_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Decode avatar images from base64
+    avatar_images_bytes = []
+    for b64 in req.avatar_images[:3]:  # max 3 avatars
+        try:
+            # Strip data URI prefix if present
+            if "," in b64:
+                b64 = b64.split(",", 1)[1]
+            avatar_images_bytes.append(base64.b64decode(b64))
+        except Exception:
+            pass
+
     session = Session(
         session_id=session_id,
         creative_brief=req.creative_brief.strip(),
@@ -162,7 +176,7 @@ async def start_sku_generation(req: GenerateSkuRequest):
         elif data.get("phase") == "done":
             session.status = "done"
 
-    thread = Thread(target=_run_sku_thread, args=(session, callback), daemon=True)
+    thread = Thread(target=_run_sku_thread, args=(session, callback, avatar_images_bytes), daemon=True)
     thread.start()
 
     return {"session_id": session_id, "mode": "sku"}
@@ -187,7 +201,7 @@ def _run_calendar_thread(session: Session, callback):
             })
 
 
-def _run_sku_thread(session: Session, callback):
+def _run_sku_thread(session: Session, callback, avatar_images: list = None):
     try:
         run_sku_pipeline(
             api_key=GOOGLE_AI_API_KEY,
@@ -195,6 +209,7 @@ def _run_sku_thread(session: Session, callback):
             creative_brief=session.creative_brief,
             output_dir=session.output_dir,
             callback=callback,
+            avatar_images=avatar_images,
         )
     except Exception as e:
         if session.status != "error":

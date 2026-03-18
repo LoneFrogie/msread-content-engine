@@ -480,6 +480,95 @@
         .footer a { color: var(--brand-coral); text-decoration: none; }
         .footer a:hover { text-decoration: underline; }
 
+        /* Avatar Selection */
+        .avatar-section { margin-top: 1.5rem; }
+        .avatar-grid {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.8rem;
+        }
+        .avatar-slot {
+            flex: 1;
+            border: 2px solid var(--brand-grey);
+            background: var(--brand-offwhite);
+            position: relative;
+            text-align: center;
+            transition: all 0.2s;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+        .avatar-slot.selected { border-color: var(--brand-coral); }
+        .avatar-slot .avatar-preview {
+            width: 100%;
+            aspect-ratio: 3/4;
+            object-fit: cover;
+            display: block;
+        }
+        .avatar-slot .avatar-placeholder {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--brand-dark-grey);
+            font-size: 0.82rem;
+            padding: 1rem;
+            cursor: pointer;
+        }
+        .avatar-slot .avatar-placeholder .upload-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: var(--brand-grey);
+        }
+        .avatar-slot .avatar-controls {
+            display: flex;
+            border-top: 1px solid var(--brand-grey);
+        }
+        .avatar-slot .avatar-controls button {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            background: none;
+            font-family: 'Jost', sans-serif;
+            font-size: 0.72rem;
+            cursor: pointer;
+            color: var(--brand-dark-grey);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.15s;
+        }
+        .avatar-slot .avatar-controls button:hover { background: var(--brand-offwhite); }
+        .avatar-slot .avatar-controls button.select-btn { color: var(--brand-coral); font-weight: 500; }
+        .avatar-slot .avatar-controls button.select-btn.active { background: var(--brand-coral); color: white; }
+        .avatar-slot .avatar-controls button.remove-btn:hover { color: var(--error); }
+        .avatar-slot .avatar-label {
+            font-size: 0.75rem;
+            color: var(--brand-dark-grey);
+            padding: 0.3rem 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: var(--brand-white);
+            border-top: 1px solid var(--brand-grey);
+        }
+        .avatar-slot .avatar-badge {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: var(--brand-coral);
+            color: white;
+            font-size: 0.65rem;
+            padding: 0.15rem 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .avatar-hint {
+            font-size: 0.75rem;
+            color: var(--brand-dark-grey);
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
+
         /* Responsive */
         @media (max-width: 600px) {
             .container { padding: 1rem; }
@@ -489,6 +578,8 @@
             .mode-tab .tab-desc { font-size: 0.65rem; }
             .product-preview { flex-direction: column; }
             .product-preview img { width: 100%; height: 200px; }
+            .avatar-grid { flex-direction: column; }
+            .avatar-slot { min-height: 160px; }
         }
     </style>
 </head>
@@ -498,6 +589,50 @@
 
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
+
+// ── Avatar helpers ──
+const AVATAR_STORAGE_KEY = "msread_avatars";
+const MAX_AVATAR_PX = 600; // resize uploaded images to this max dimension
+
+function loadAvatarsFromStorage() {
+    try {
+        const stored = localStorage.getItem(AVATAR_STORAGE_KEY);
+        if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return [null, null, null]; // 3 slots
+}
+
+function saveAvatarsToStorage(avatars) {
+    try {
+        localStorage.setItem(AVATAR_STORAGE_KEY, JSON.stringify(avatars));
+    } catch (e) {
+        console.warn("localStorage full, avatar not saved");
+    }
+}
+
+function resizeImageToBase64(file, maxPx) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                let w = img.width, h = img.height;
+                if (Math.max(w, h) > maxPx) {
+                    const ratio = maxPx / Math.max(w, h);
+                    w = Math.round(w * ratio);
+                    h = Math.round(h * ratio);
+                }
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+                resolve(canvas.toDataURL("image/png"));
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
 
 const EXAMPLE_BRIEFS = [
     "Focus on Raya collection. Highlight baju kurung and modest fashion in emerald, pastel pink, and gold. Target working women preparing for Hari Raya celebrations.",
@@ -531,6 +666,17 @@ function App() {
     const [brief, setBrief] = useState("");
     const [productUrl, setProductUrl] = useState("");
     const [productPreview, setProductPreview] = useState(null);
+
+    // Avatar state: array of 3 slots, each null or base64 string
+    const [avatars, setAvatars] = useState(loadAvatarsFromStorage);
+    const [selectedAvatars, setSelectedAvatars] = useState(() => {
+        // Auto-select any pre-loaded avatars
+        const stored = loadAvatarsFromStorage();
+        const sel = new Set();
+        stored.forEach((a, i) => { if (a) sel.add(i); });
+        return sel;
+    });
+    const avatarFileRefs = [useRef(null), useRef(null), useRef(null)];
     const [sessionId, setSessionId] = useState(null);
     const [activeMode, setActiveMode] = useState("calendar");
     const [events, setEvents] = useState([]);
@@ -573,11 +719,21 @@ function App() {
         if (!productUrl.trim()) return;
         _resetProgress("sku");
 
+        // Collect selected avatar base64 data
+        const avatarData = [];
+        selectedAvatars.forEach(idx => {
+            if (avatars[idx]) avatarData.push(avatars[idx]);
+        });
+
         try {
             const res = await fetch("/api/generate-sku", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ product_url: productUrl, creative_brief: brief }),
+                body: JSON.stringify({
+                    product_url: productUrl,
+                    creative_brief: brief,
+                    avatar_images: avatarData,
+                }),
             });
             if (!res.ok) { setError((await res.json()).detail || "Failed"); return; }
 
@@ -627,6 +783,40 @@ function App() {
             if (ev.type === "error") setError(ev.message);
         };
         es.onerror = () => es.close();
+    }
+
+    // ── Avatar handlers ──
+    async function handleAvatarUpload(slotIndex, e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const b64 = await resizeImageToBase64(file, MAX_AVATAR_PX);
+        const updated = [...avatars];
+        updated[slotIndex] = b64;
+        setAvatars(updated);
+        saveAvatarsToStorage(updated);
+        // Auto-select on upload
+        setSelectedAvatars(prev => { const s = new Set(prev); s.add(slotIndex); return s; });
+    }
+
+    function handleAvatarRemove(slotIndex) {
+        const updated = [...avatars];
+        updated[slotIndex] = null;
+        setAvatars(updated);
+        saveAvatarsToStorage(updated);
+        setSelectedAvatars(prev => { const s = new Set(prev); s.delete(slotIndex); return s; });
+    }
+
+    function toggleAvatarSelect(slotIndex) {
+        if (!avatars[slotIndex]) return; // can't select empty slot
+        setSelectedAvatars(prev => {
+            const s = new Set(prev);
+            if (s.has(slotIndex)) {
+                if (s.size > 1) s.delete(slotIndex); // min 1
+            } else {
+                s.add(slotIndex);
+            }
+            return s;
+        });
     }
 
     function resetToInput() {
@@ -764,7 +954,49 @@ function App() {
                                     value={brief}
                                     onChange={(e) => setBrief(e.target.value)}
                                 />
-                                <button className="btn-primary" onClick={handleGenerateSku} disabled={!productUrl.trim()}>
+                                {/* ── Avatar Selection ── */}
+                                <div className="avatar-section">
+                                    <label className="form-label">Digital Avatar / Model</label>
+                                    <p className="form-hint">
+                                        Upload your digital avatar(s). Selected avatar(s) will appear as the model wearing the product. Min 1, max 3.
+                                    </p>
+                                    <div className="avatar-grid">
+                                        {[0, 1, 2].map(idx => (
+                                            <div key={idx} className={`avatar-slot ${selectedAvatars.has(idx) && avatars[idx] ? "selected" : ""}`}>
+                                                {avatars[idx] ? (
+                                                    <>
+                                                        <img className="avatar-preview" src={avatars[idx]} alt={`Avatar ${idx + 1}`}
+                                                            onClick={() => toggleAvatarSelect(idx)} style={{ cursor: "pointer" }} />
+                                                        {selectedAvatars.has(idx) && <div className="avatar-badge">Selected</div>}
+                                                        <div className="avatar-controls">
+                                                            <button className={`select-btn ${selectedAvatars.has(idx) ? "active" : ""}`}
+                                                                onClick={() => toggleAvatarSelect(idx)}>
+                                                                {selectedAvatars.has(idx) ? "Selected" : "Select"}
+                                                            </button>
+                                                            <button onClick={() => { avatarFileRefs[idx].current.click(); }}>Replace</button>
+                                                            <button className="remove-btn" onClick={() => handleAvatarRemove(idx)}>Remove</button>
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <div className="avatar-placeholder" onClick={() => avatarFileRefs[idx].current.click()}>
+                                                        <span className="upload-icon">+</span>
+                                                        {idx < 2 ? `Avatar ${idx + 1}` : "Custom Avatar"}
+                                                        <span style={{ fontSize: "0.7rem", marginTop: "0.3rem" }}>Click to upload</span>
+                                                    </div>
+                                                )}
+                                                <input type="file" accept="image/*" ref={avatarFileRefs[idx]}
+                                                    style={{ display: "none" }}
+                                                    onChange={(e) => handleAvatarUpload(idx, e)} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="avatar-hint">
+                                        Avatars are saved in your browser. {selectedAvatars.size > 0 ? `${selectedAvatars.size} avatar(s) selected — images will rotate between them.` : "Upload at least one avatar."}
+                                    </p>
+                                </div>
+
+                                <button className="btn-primary" onClick={handleGenerateSku}
+                                    disabled={!productUrl.trim() || (avatars.some(a => a) && selectedAvatars.size === 0)}>
                                     Generate Product Content
                                 </button>
                             </div>

@@ -699,8 +699,9 @@ def _download_product_images(product: dict, max_images: int = 3) -> list:
 
 
 def generate_sku_images(client, content: dict, product: dict, creative_brief: str,
-                        output_dir: Path, callback: Callable) -> list:
-    """Generate product images via Nano Banana, using actual product photos as reference."""
+                        output_dir: Path, callback: Callable,
+                        avatar_images: list = None) -> list:
+    """Generate product images via Nano Banana, using avatar + product photos as reference."""
     image_dir = output_dir / "images"
     thumb_dir = output_dir / "thumbnails"
     image_dir.mkdir(parents=True, exist_ok=True)
@@ -708,14 +709,18 @@ def generate_sku_images(client, content: dict, product: dict, creative_brief: st
 
     prompts = content.get("image_prompts", [])
     total = len(prompts)
-    callback("status", {"phase": "generating_images", "message": f"Downloading product photos & generating {total} images...", "total": total, "current": 0})
+    avatar_images = avatar_images or []
+
+    callback("status", {"phase": "generating_images",
+        "message": f"Downloading product photos & generating {total} images ({len(avatar_images)} avatar(s) selected)...",
+        "total": total, "current": 0})
 
     # Download actual product photos for visual reference
     ref_images = _download_product_images(product)
-    if ref_images:
-        callback("status", {"phase": "generating_images", "message": f"Downloaded {len(ref_images)} product photo(s) as reference. Generating {total} images..."})
-    else:
-        callback("status", {"phase": "generating_images", "message": f"No product photos available. Generating {total} images from text only..."})
+    ref_msg = f"{len(ref_images)} product photo(s)" if ref_images else "No product photos"
+    avatar_msg = f", {len(avatar_images)} avatar(s)" if avatar_images else ""
+    callback("status", {"phase": "generating_images",
+        "message": f"{ref_msg}{avatar_msg}. Generating {total} images..."})
 
     product_context = f" Product: {product['title']}, {product['product_type']}."
     if creative_brief:
@@ -734,33 +739,57 @@ def generate_sku_images(client, content: dict, product: dict, creative_brief: st
             "message": f"Generating {scene}..."
         })
 
-        text_prompt = (
-            f"{BRAND_IMAGE_PREFIX}{product_context}\n\n"
-            f"IMPORTANT: Use the attached product photo(s) as reference. "
-            f"The generated image MUST feature this EXACT garment — same fabric pattern, color, print, and design details. "
-            f"Do NOT change the garment design. Show it in a new setting/styling as described below.\n\n"
-            f"{p['prompt']}"
-        )
-
-        # Build multimodal content: reference images + text prompt
+        # Build multimodal content parts
         content_parts = []
+
+        # --- Avatar reference (round-robin across selected avatars) ---
+        if avatar_images:
+            avatar_idx = i % len(avatar_images)
+            content_parts.append(types.Part.from_text(
+                text="AVATAR REFERENCE — This is the digital model/avatar. "
+                     "The generated image MUST show THIS EXACT person (same face, body type, skin tone, hair). "
+                     "Do NOT change the person's appearance."
+            ))
+            content_parts.append(types.Part.from_bytes(
+                data=avatar_images[avatar_idx],
+                mime_type="image/png",
+            ))
+
+        # --- Product reference ---
         if ref_images:
-            # Use first image as primary reference (the main product shot)
+            content_parts.append(types.Part.from_text(
+                text="PRODUCT REFERENCE — This is the garment to feature. "
+                     "The generated image MUST show this EXACT garment — same fabric pattern, color, print, and design details. "
+                     "Do NOT change the garment design."
+            ))
             content_parts.append(types.Part.from_bytes(
                 data=ref_images[0],
                 mime_type="image/png",
             ))
-            if len(ref_images) > 1:
-                content_parts.append(types.Part.from_bytes(
-                    data=ref_images[1],
-                    mime_type="image/png",
-                ))
-            content_parts.append(types.Part.from_text(text=text_prompt))
+
+        # --- Scene instruction ---
+        if avatar_images:
+            avatar_instruction = (
+                "CRITICAL: Show the AVATAR person (from the avatar reference above) wearing the PRODUCT garment (from the product reference above). "
+                "Keep the avatar's face, body, skin tone, and hair exactly as shown. Dress them in this exact garment. "
+            )
         else:
-            # Fallback to text-only if no product images available
-            content_parts.append(types.Part.from_text(
+            avatar_instruction = (
+                "IMPORTANT: The generated image MUST feature this EXACT garment — same fabric pattern, color, print, and design. "
+            )
+
+        text_prompt = (
+            f"{BRAND_IMAGE_PREFIX}{product_context}\n\n"
+            f"{avatar_instruction}\n\n"
+            f"{p['prompt']}"
+        )
+        content_parts.append(types.Part.from_text(text=text_prompt))
+
+        # Fallback: text-only if no references at all
+        if not avatar_images and not ref_images:
+            content_parts = [types.Part.from_text(
                 text=f"{BRAND_IMAGE_PREFIX}{product_context}\n\n{p['prompt']}"
-            ))
+            )]
 
         try:
             response = client.models.generate_content(
@@ -845,7 +874,8 @@ def package_sku_output(output_dir: Path, product_title: str, callback: Callable)
 # ═══════════════════════════════════════════════════════════════
 
 def run_sku_pipeline(api_key: str, product_url: str, creative_brief: str,
-                     output_dir: Path, callback: Callable):
+                     output_dir: Path, callback: Callable,
+                     avatar_images: list = None):
     """Run the full SKU content pipeline."""
     try:
         client = genai.Client(api_key=api_key)
@@ -859,8 +889,9 @@ def run_sku_pipeline(api_key: str, product_url: str, creative_brief: str,
         # Phase 3: Build Excel
         build_sku_excel(content, product, output_dir, callback)
 
-        # Phase 4: Generate images
-        generate_sku_images(client, content, product, creative_brief, output_dir, callback)
+        # Phase 4: Generate images (with avatar reference)
+        generate_sku_images(client, content, product, creative_brief, output_dir, callback,
+                            avatar_images=avatar_images)
 
         # Phase 5: Package
         package_sku_output(output_dir, product["title"], callback)
