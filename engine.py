@@ -18,6 +18,7 @@ from openpyxl.drawing.image import Image as XlImage
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from PIL import Image as PILImage
+from humanizer import humanize_content
 
 # ── Brand constants ──
 BRAND_NAME = "MS. READ"
@@ -820,6 +821,11 @@ def run_pipeline(api_key: str, creative_brief: str, output_dir: Path, callback: 
 
         # Phase 1: Adapt content
         content = generate_adapted_content(client, creative_brief, start_date, callback)
+
+        # Phase 1.5: Humanize — remove AI writing patterns
+        content = humanize_content(client, content, callback, fields_to_humanize=[
+            "blogs", "social_copy", "calendar",
+        ])
 
         # Phase 2: Build Excel
         excel_path = build_excel(content, output_dir, callback)

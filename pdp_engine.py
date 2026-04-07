@@ -29,6 +29,7 @@ from sku_engine import (
     _parse_json_robust,
     BRAND_NAME,
 )
+from humanizer import humanize_content
 
 # ═══════════════════════════════════════════════════════════════
 # Gemini prompt for structured product description
@@ -209,6 +210,11 @@ def run_pdp_pipeline(api_key: str, product_url: str, creative_brief: str,
 
         # Phase 2: Generate optimized description
         content = generate_pdp_content(client, product, creative_brief, callback)
+
+        # Phase 2.5: Humanize — remove AI writing patterns
+        content = humanize_content(client, content, callback, fields_to_humanize=[
+            "style_story", "why_youll_love_it", "how_to_style", "sizing_recommendation",
+        ])
 
         # Phase 3: Save as JSON for the frontend to render
         output_path = output_dir / "pdp_content.json"

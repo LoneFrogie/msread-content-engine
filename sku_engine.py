@@ -26,6 +26,7 @@ from google.genai import types
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from PIL import Image as PILImage
+from humanizer import humanize_content
 
 # ── Brand constants ──
 BRAND_NAME = "MS. READ"
@@ -897,6 +898,11 @@ def run_sku_pipeline(api_key: str, product_url: str, creative_brief: str,
 
         # Phase 2: Generate content
         content = generate_sku_content(client, product, creative_brief, callback)
+
+        # Phase 2.5: Humanize — remove AI writing patterns
+        content = humanize_content(client, content, callback, fields_to_humanize=[
+            "blog_post", "social_posts", "product_descriptions", "email_campaign",
+        ])
 
         # Phase 3: Build Excel
         build_sku_excel(content, product, output_dir, callback)
