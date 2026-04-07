@@ -32,6 +32,7 @@ import uvicorn
 
 from engine import run_pipeline
 from sku_engine import run_sku_pipeline
+from pdp_engine import run_pdp_pipeline
 
 app = FastAPI(title="MS. READ Content Engine")
 
@@ -81,6 +82,11 @@ class GenerateSkuRequest(BaseModel):
     product_url: str
     creative_brief: str = ""
     avatar_images: list[str] = []  # base64-encoded PNG images
+
+
+class GeneratePdpRequest(BaseModel):
+    product_url: str
+    creative_brief: str = ""
 
 
 @app.get("/")
@@ -180,6 +186,68 @@ async def start_sku_generation(req: GenerateSkuRequest):
     thread.start()
 
     return {"session_id": session_id, "mode": "sku"}
+
+
+@app.post("/api/generate-pdp")
+async def start_pdp_generation(req: GeneratePdpRequest):
+    if not GOOGLE_AI_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="GOOGLE_AI_API_KEY not set."
+        )
+
+    if not req.product_url.strip():
+        raise HTTPException(status_code=400, detail="Product URL cannot be empty")
+
+    cleanup_old_sessions()
+
+    session_id = uuid4().hex[:12]
+    output_dir = OUTPUT_BASE / session_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    session = Session(
+        session_id=session_id,
+        creative_brief=req.creative_brief.strip(),
+        mode="pdp",
+        product_url=req.product_url.strip(),
+        status="running",
+        output_dir=output_dir,
+    )
+    sessions[session_id] = session
+
+    def callback(event_type, data):
+        event = {"type": event_type, "timestamp": datetime.now().isoformat(), **data}
+        session.events.append(event)
+        if event_type == "error":
+            session.status = "error"
+            session.error = data.get("message", "Unknown error")
+        elif data.get("phase") == "done":
+            session.status = "done"
+
+    thread = Thread(target=_run_pdp_thread, args=(session, callback), daemon=True)
+    thread.start()
+
+    return {"session_id": session_id, "mode": "pdp"}
+
+
+def _run_pdp_thread(session: Session, callback):
+    try:
+        run_pdp_pipeline(
+            api_key=GOOGLE_AI_API_KEY,
+            product_url=session.product_url,
+            creative_brief=session.creative_brief,
+            output_dir=session.output_dir,
+            callback=callback,
+        )
+    except Exception as e:
+        if session.status != "error":
+            session.status = "error"
+            session.error = str(e)
+            session.events.append({
+                "type": "error",
+                "message": str(e),
+                "timestamp": datetime.now().isoformat(),
+            })
 
 
 def _run_calendar_thread(session: Session, callback):
@@ -302,6 +370,21 @@ async def download_excel(session_id: str):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=f"{excel_path.stem}_{datetime.now().strftime('%Y%m%d')}.xlsx",
     )
+
+
+@app.get("/api/pdp-content/{session_id}")
+async def get_pdp_content(session_id: str):
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = sessions[session_id]
+    pdp_path = session.output_dir / "pdp_content.json"
+    if not pdp_path.exists():
+        raise HTTPException(status_code=404, detail="PDP content not ready yet")
+
+    import json as _json
+    with open(pdp_path) as f:
+        return _json.load(f)
 
 
 if __name__ == "__main__":

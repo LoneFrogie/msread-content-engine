@@ -569,6 +569,122 @@
             font-style: italic;
         }
 
+        /* PDP Preview */
+        .pdp-preview {
+            font-family: 'Jost', sans-serif;
+            color: var(--brand-black);
+        }
+        .pdp-section {
+            margin-bottom: 2rem;
+        }
+        .pdp-section h3 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 0.8rem;
+            padding-bottom: 0.4rem;
+            border-bottom: 1px solid var(--brand-grey);
+            color: var(--brand-black);
+        }
+        .pdp-specs {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 0.4rem 1rem;
+            font-size: 0.88rem;
+        }
+        .pdp-specs .spec-label {
+            font-weight: 500;
+            color: var(--brand-dark-grey);
+        }
+        .pdp-specs .spec-value {
+            color: var(--brand-black);
+        }
+        .pdp-story {
+            font-size: 0.95rem;
+            line-height: 1.8;
+            color: #333;
+        }
+        .pdp-benefits .benefit-item {
+            margin-bottom: 1rem;
+        }
+        .pdp-benefits .benefit-title {
+            font-weight: 500;
+            color: var(--brand-black);
+            margin-bottom: 0.2rem;
+        }
+        .pdp-benefits .benefit-desc {
+            font-size: 0.88rem;
+            color: #555;
+            line-height: 1.6;
+        }
+        .pdp-styling .style-item {
+            margin-bottom: 0.8rem;
+        }
+        .pdp-styling .style-name {
+            font-weight: 500;
+            color: var(--brand-coral);
+        }
+        .pdp-styling .style-desc {
+            font-size: 0.88rem;
+            color: #555;
+            line-height: 1.6;
+        }
+        .pdp-sizing {
+            font-size: 0.9rem;
+            line-height: 1.7;
+            color: #444;
+            background: var(--brand-offwhite);
+            padding: 1rem;
+            border-left: 3px solid var(--brand-coral);
+        }
+        .pdp-product-header {
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+            margin-bottom: 1.5rem;
+        }
+        .pdp-product-header img {
+            width: 180px;
+            height: 240px;
+            object-fit: cover;
+            border: 1px solid var(--brand-grey);
+        }
+        .pdp-product-header .product-info {
+            flex: 1;
+        }
+        .pdp-product-header .product-title {
+            font-size: 1.3rem;
+            font-weight: 500;
+            margin-bottom: 0.3rem;
+        }
+        .pdp-product-header .product-price {
+            font-size: 1.1rem;
+            color: var(--brand-coral);
+            font-weight: 500;
+        }
+        .pdp-actions {
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+        .btn-copy {
+            background: transparent;
+            color: var(--brand-dark-grey);
+            border: 1px solid var(--brand-grey);
+            padding: 0.5rem 1rem;
+            border-radius: 0;
+            font-family: 'Jost', sans-serif;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .btn-copy:hover { border-color: var(--brand-black); color: var(--brand-black); }
+        .btn-copy.copied { border-color: var(--brand-green); color: var(--brand-green); }
+
         /* Responsive */
         @media (max-width: 600px) {
             .container { padding: 1rem; }
@@ -660,8 +776,14 @@ const SKU_PHASES = [
     { key: "done", label: "Done" },
 ];
 
+const PDP_PHASES = [
+    { key: "fetching_product", label: "Fetch Product" },
+    { key: "generating_content", label: "Optimizing" },
+    { key: "done", label: "Done" },
+];
+
 function App() {
-    const [mode, setMode] = useState("calendar"); // "calendar" | "sku"
+    const [mode, setMode] = useState("calendar"); // "calendar" | "sku" | "pdp"
     const [view, setView] = useState("input");
     const [brief, setBrief] = useState("");
     const [productUrl, setProductUrl] = useState("");
@@ -687,6 +809,8 @@ function App() {
     const [lightbox, setLightbox] = useState(null);
     const [startTime, setStartTime] = useState(null);
     const [endTime, setEndTime] = useState(null);
+    const [pdpContent, setPdpContent] = useState(null);
+    const [copyState, setCopyState] = useState({});
     const logRef = useRef(null);
 
     useEffect(() => {
@@ -745,11 +869,67 @@ function App() {
         } catch (err) { setError("Network error: " + err.message); }
     }
 
+    // ── PDP Generation ──
+    async function handleGeneratePdp() {
+        if (!productUrl.trim()) return;
+        _resetProgress("pdp");
+        setPdpContent(null);
+
+        try {
+            const res = await fetch("/api/generate-pdp", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    product_url: productUrl,
+                    creative_brief: brief,
+                }),
+            });
+            if (!res.ok) { setError((await res.json()).detail || "Failed"); return; }
+
+            const { session_id } = await res.json();
+            setSessionId(session_id);
+            setActiveMode("pdp");
+            setView("progress");
+
+            // Listen to progress, then fetch PDP content when done
+            const es = new EventSource(`/api/progress/${session_id}`);
+            es.onmessage = (e) => {
+                const ev = JSON.parse(e.data);
+                if (ev.type === "stream_end") {
+                    es.close();
+                    if (ev.status === "done") {
+                        setEndTime(Date.now());
+                        // Fetch PDP content JSON
+                        fetch(`/api/pdp-content/${session_id}`)
+                            .then(r => r.json())
+                            .then(data => {
+                                setPdpContent(data);
+                                setView("results");
+                            })
+                            .catch(() => setView("results"));
+                    } else {
+                        setError("Generation failed. Check the log.");
+                    }
+                    return;
+                }
+                setEvents((prev) => [...prev, ev]);
+                if (ev.type === "status" && ev.phase) {
+                    setCurrentPhase(ev.phase);
+                    if (ev.product) setProductPreview(ev.product);
+                    // Capture PDP content from the done event
+                    if (ev.pdp_content) setPdpContent({ description: ev.pdp_content, product: ev.product || productPreview });
+                }
+                if (ev.type === "error") setError(ev.message);
+            };
+            es.onerror = () => es.close();
+        } catch (err) { setError("Network error: " + err.message); }
+    }
+
     function _resetProgress(m) {
         setError(null);
         setEvents([]);
         setImages({});
-        setCurrentPhase(m === "sku" ? "fetching_product" : "adapting");
+        setCurrentPhase(m === "pdp" ? "fetching_product" : m === "sku" ? "fetching_product" : "adapting");
         setImageProgress({ current: 0, total: m === "sku" ? 4 : 30 });
         setStartTime(Date.now());
         setEndTime(null);
@@ -819,6 +999,38 @@ function App() {
         });
     }
 
+    function copyToClipboard(key, text) {
+        navigator.clipboard.writeText(text).then(() => {
+            setCopyState(prev => ({ ...prev, [key]: true }));
+            setTimeout(() => setCopyState(prev => ({ ...prev, [key]: false })), 2000);
+        });
+    }
+
+    function copyFullPdp() {
+        if (!pdpContent?.description) return;
+        const d = pdpContent.description;
+        const lines = [];
+        lines.push("Quick Specs & Fit");
+        if (d.quick_specs) {
+            lines.push(`• SKU: ${d.quick_specs.sku || ""}`);
+            lines.push(`• Fabric: ${d.quick_specs.fabric || ""}`);
+            lines.push(`• Fit Type: ${d.quick_specs.fit_type || ""}`);
+            lines.push(`• Key Features: ${d.quick_specs.key_features || ""}`);
+            lines.push(`• Care: ${d.quick_specs.care || ""}`);
+        }
+        lines.push("", "The Style Story", d.style_story || "");
+        lines.push("", "Why You'll Love It");
+        (d.why_youll_love_it || []).forEach(b => {
+            lines.push(`• ${b.title}: ${b.description}`);
+        });
+        lines.push("", "How To Style");
+        (d.how_to_style || []).forEach(s => {
+            lines.push(`• ${s.look_name}: ${s.description}`);
+        });
+        lines.push("", "Sizing Recommendation", d.sizing_recommendation || "");
+        copyToClipboard("full_pdp", lines.join("\n"));
+    }
+
     function resetToInput() {
         setView("input");
         setBrief("");
@@ -831,9 +1043,11 @@ function App() {
         setError(null);
         setStartTime(null);
         setEndTime(null);
+        setPdpContent(null);
+        setCopyState({});
     }
 
-    const phases = activeMode === "sku" ? SKU_PHASES : CALENDAR_PHASES;
+    const phases = activeMode === "pdp" ? PDP_PHASES : activeMode === "sku" ? SKU_PHASES : CALENDAR_PHASES;
     const phaseOrder = phases.map(p => p.key);
     const currentPhaseIdx = phaseOrder.indexOf(currentPhase);
 
@@ -884,6 +1098,10 @@ function App() {
                         <button className={`mode-tab ${mode === "sku" ? "active" : ""}`} onClick={() => setMode("sku")}>
                             SKU Product Content
                             <span className="tab-desc">Blog, social, descriptions & email for one product</span>
+                        </button>
+                        <button className={`mode-tab ${mode === "pdp" ? "active" : ""}`} onClick={() => setMode("pdp")}>
+                            Product Description
+                            <span className="tab-desc">Optimized PDP copy from product URL & images</span>
                         </button>
                     </div>
 
@@ -1013,6 +1231,53 @@ function App() {
                             </div>
                         </>
                     )}
+
+                    {/* ── PDP MODE ── */}
+                    {mode === "pdp" && (
+                        <>
+                            <div className="card">
+                                <h2>Product URL</h2>
+                                <p className="form-hint">
+                                    Paste a product link from <strong>msreadshop.com</strong>. The engine will analyze the product images and generate an optimized description.
+                                </p>
+                                <label className="form-label">Product Link</label>
+                                <input
+                                    type="url"
+                                    className="url-input"
+                                    placeholder="https://www.msreadshop.com/products/your-product-handle"
+                                    value={productUrl}
+                                    onChange={(e) => setProductUrl(e.target.value)}
+                                />
+
+                                <label className="form-label" style={{ marginTop: "1rem" }}>Additional Direction (Optional)</label>
+                                <textarea
+                                    className="brief-input"
+                                    style={{ minHeight: "80px" }}
+                                    placeholder="Example: Emphasise the Raya-ready styling. Focus on the premium fabric feel and versatility from office to evening events."
+                                    value={brief}
+                                    onChange={(e) => setBrief(e.target.value)}
+                                />
+
+                                <button className="btn-primary" onClick={handleGeneratePdp} disabled={!productUrl.trim()}>
+                                    Optimize Product Description
+                                </button>
+                            </div>
+
+                            <div className="card">
+                                <h2>What You'll Get</h2>
+                                <p className="form-hint" style={{ marginBottom: "1rem" }}>
+                                    AI analyzes product images to generate an accurate, conversion-optimized description.
+                                </p>
+                                <div className="results-summary">
+                                    <div className="stat-card"><div className="value" style={{ fontSize: "1.2rem" }}>Quick Specs</div><div className="label">SKU, Fabric, Fit, Care</div></div>
+                                    <div className="stat-card"><div className="value" style={{ fontSize: "1.2rem" }}>Style Story</div><div className="label">Editorial narrative</div></div>
+                                    <div className="stat-card"><div className="value" style={{ fontSize: "1.2rem" }}>4 Benefits</div><div className="label">Why You'll Love It</div></div>
+                                    <div className="stat-card"><div className="value" style={{ fontSize: "1.2rem" }}>3 Looks</div><div className="label">How To Style</div></div>
+                                    <div className="stat-card"><div className="value" style={{ fontSize: "1.2rem" }}>Sizing</div><div className="label">Recommendation</div></div>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </>
             )}
 
@@ -1020,7 +1285,7 @@ function App() {
             {view === "progress" && (
                 <>
                     <div className="card">
-                        <h2>{activeMode === "sku" ? "Generating Product Content" : "Generating Your Content Pack"}</h2>
+                        <h2>{activeMode === "pdp" ? "Optimizing Product Description" : activeMode === "sku" ? "Generating Product Content" : "Generating Your Content Pack"}</h2>
 
                         {/* Product preview (SKU mode) */}
                         {productPreview && (
@@ -1095,7 +1360,132 @@ function App() {
             )}
 
             {/* ── RESULTS VIEW ── */}
-            {view === "results" && (
+            {view === "results" && activeMode === "pdp" && pdpContent && (
+                <>
+                    {/* PDP Results */}
+                    <div className="card">
+                        <div className="pdp-product-header">
+                            {(pdpContent.product?.image_url || productPreview?.image_url) && (
+                                <img src={pdpContent.product?.image_url || productPreview?.image_url}
+                                    alt={pdpContent.product?.title || productPreview?.title} />
+                            )}
+                            <div className="product-info">
+                                <div className="product-title">{pdpContent.product?.title || productPreview?.title}</div>
+                                <div className="product-price">RM{pdpContent.product?.price || productPreview?.price}</div>
+                                {pdpContent.description?.seo_title && (
+                                    <p style={{ fontSize: "0.8rem", color: "var(--brand-dark-grey)", marginTop: "0.5rem" }}>
+                                        <strong>SEO Title:</strong> {pdpContent.description.seo_title}
+                                    </p>
+                                )}
+                                {pdpContent.description?.meta_description && (
+                                    <p style={{ fontSize: "0.8rem", color: "var(--brand-dark-grey)", marginTop: "0.2rem" }}>
+                                        <strong>Meta:</strong> {pdpContent.description.meta_description}
+                                    </p>
+                                )}
+                                <div className="pdp-actions">
+                                    <button className={`btn-copy ${copyState.full_pdp ? "copied" : ""}`} onClick={copyFullPdp}>
+                                        {copyState.full_pdp ? "Copied!" : "Copy Full Description"}
+                                    </button>
+                                    <button className={`btn-copy ${copyState.story ? "copied" : ""}`}
+                                        onClick={() => copyToClipboard("story", pdpContent.description?.style_story || "")}>
+                                        {copyState.story ? "Copied!" : "Copy Style Story"}
+                                    </button>
+                                    <button className={`btn-copy ${copyState.sizing ? "copied" : ""}`}
+                                        onClick={() => copyToClipboard("sizing", pdpContent.description?.sizing_recommendation || "")}>
+                                        {copyState.sizing ? "Copied!" : "Copy Sizing"}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {pdpContent.description && (() => {
+                        const d = pdpContent.description;
+                        return (
+                            <div className="card pdp-preview">
+                                {/* Quick Specs & Fit */}
+                                {d.quick_specs && (
+                                    <div className="pdp-section">
+                                        <h3>Quick Specs &amp; Fit</h3>
+                                        <div className="pdp-specs">
+                                            <span className="spec-label">SKU:</span>
+                                            <span className="spec-value">{d.quick_specs.sku}</span>
+                                            <span className="spec-label">Fabric:</span>
+                                            <span className="spec-value">{d.quick_specs.fabric}</span>
+                                            <span className="spec-label">Fit Type:</span>
+                                            <span className="spec-value">{d.quick_specs.fit_type}</span>
+                                            <span className="spec-label">Key Features:</span>
+                                            <span className="spec-value">{d.quick_specs.key_features}</span>
+                                            <span className="spec-label">Care:</span>
+                                            <span className="spec-value">{d.quick_specs.care}</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* The Style Story */}
+                                {d.style_story && (
+                                    <div className="pdp-section">
+                                        <h3>The Style Story</h3>
+                                        <p className="pdp-story">{d.style_story}</p>
+                                    </div>
+                                )}
+
+                                {/* Why You'll Love It */}
+                                {d.why_youll_love_it && (
+                                    <div className="pdp-section">
+                                        <h3>Why You'll Love It</h3>
+                                        <div className="pdp-benefits">
+                                            {d.why_youll_love_it.map((b, i) => (
+                                                <div key={i} className="benefit-item">
+                                                    <div className="benefit-title">{b.title}</div>
+                                                    <div className="benefit-desc">{b.description}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* How To Style */}
+                                {d.how_to_style && (
+                                    <div className="pdp-section">
+                                        <h3>How To Style</h3>
+                                        <div className="pdp-styling">
+                                            {d.how_to_style.map((s, i) => (
+                                                <div key={i} className="style-item">
+                                                    <span className="style-name">{s.look_name}: </span>
+                                                    <span className="style-desc">{s.description}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Sizing Recommendation */}
+                                {d.sizing_recommendation && (
+                                    <div className="pdp-section">
+                                        <h3>Sizing Recommendation</h3>
+                                        <div className="pdp-sizing">{d.sizing_recommendation}</div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
+
+                    {duration && (
+                        <div className="card" style={{ textAlign: "center" }}>
+                            <p style={{ color: "var(--brand-dark-grey)", fontSize: "0.85rem" }}>
+                                Generated in {Math.floor(duration/60)}:{String(duration%60).padStart(2,'0')}
+                            </p>
+                        </div>
+                    )}
+
+                    <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                        <button className="btn-secondary" onClick={resetToInput}>Optimize Another Product</button>
+                    </div>
+                </>
+            )}
+
+            {view === "results" && activeMode !== "pdp" && (
                 <>
                     <div className="card" style={{ textAlign: "center" }}>
                         <h2 style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>
@@ -1107,7 +1497,6 @@ function App() {
                                 : "Your 30-day content engine has been generated."}
                         </p>
 
-                        {/* Product preview in results (SKU mode) */}
                         {productPreview && (
                             <div className="product-preview" style={{ justifyContent: "center", marginTop: "1rem" }}>
                                 {productPreview.image_url && <img src={productPreview.image_url} alt={productPreview.title} />}
