@@ -154,7 +154,6 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
                     number_of_videos=1,
                     duration_seconds=6,
                     aspect_ratio="9:16",  # Vertical for Reels/TikTok
-                    person_generation="allow_all",
                     enhance_prompt=True,
                 ),
             )
