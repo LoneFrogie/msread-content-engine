@@ -782,17 +782,19 @@ def generate_sku_images(client, content: dict, product: dict, creative_brief: st
                 mime_type="image/png",
             ))
 
-        # --- Product reference ---
+        # --- Product reference (send ALL product photos) ---
         if ref_images:
             content_parts.append(types.Part.from_text(
-                text="PRODUCT REFERENCE — This is the garment to feature. "
-                     "The generated image MUST show this EXACT garment — same fabric pattern, color, print, and design details. "
-                     "Do NOT change the garment design."
+                text=f"PRODUCT REFERENCE — These {len(ref_images)} images show the EXACT garment to feature. "
+                     "Study every detail: fabric pattern, color, print, cut, neckline, sleeves, buttons, embellishments. "
+                     "The generated image MUST reproduce this EXACT garment faithfully. "
+                     "Do NOT invent a different design — copy the garment precisely."
             ))
-            content_parts.append(types.Part.from_bytes(
-                data=ref_images[0],
-                mime_type="image/png",
-            ))
+            for ref_img in ref_images:
+                content_parts.append(types.Part.from_bytes(
+                    data=ref_img,
+                    mime_type="image/png",
+                ))
 
         # --- Scene instruction ---
         if avatar_images:

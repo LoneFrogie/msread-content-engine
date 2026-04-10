@@ -10,6 +10,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Callable, Optional
 
+import requests
 from google.genai import types
 from PIL import Image as PILImage
 
@@ -185,7 +186,18 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
                     operation.result.generated_videos and
                     len(operation.result.generated_videos) > 0):
                 video = operation.result.generated_videos[0].video
-                video.save(str(filepath))
+
+                # Handle both inline bytes and remote URI
+                if video.video_bytes:
+                    with open(filepath, "wb") as f:
+                        f.write(video.video_bytes)
+                elif video.uri:
+                    resp = requests.get(video.uri, timeout=120)
+                    resp.raise_for_status()
+                    with open(filepath, "wb") as f:
+                        f.write(resp.content)
+                else:
+                    raise ValueError("Video has no bytes or URI")
 
                 size_mb = filepath.stat().st_size / (1024 * 1024)
                 generated_videos.append({
