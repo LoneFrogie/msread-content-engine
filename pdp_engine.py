@@ -158,7 +158,7 @@ def generate_pdp_content(client, product: dict, creative_brief: str, callback: C
 
     # Try up to 3 attempts with backoff for API errors (503) and JSON failures
     last_error = None
-    attempts = [(0.6, 2), (0.4, 10), (0.3, 20)]
+    attempts = [(0.6, 5), (0.5, 15), (0.4, 30), (0.3, 45)]
     for attempt, (temp, wait) in enumerate(attempts):
         try:
             response = client.models.generate_content(

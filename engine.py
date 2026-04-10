@@ -201,7 +201,7 @@ def _gemini_call(client, prompt: str, max_tokens: int = 32000, temperature: floa
     """Make a Gemini text call with retry on JSON parse failure and API errors."""
     import re as _re
     last_error = None
-    attempts = [(temperature, 2), (0.5, 10), (0.4, 20)]
+    attempts = [(temperature, 5), (0.6, 15), (0.5, 30), (0.4, 45)]
     for attempt, (temp, wait) in enumerate(attempts):
         try:
             response = client.models.generate_content(
@@ -686,47 +686,53 @@ def generate_images(client, creative_brief: str, excel_path: Path, output_dir: P
 
         full_prompt = f"{BRAND_IMAGE_PREFIX}{brief_context}\n\n{p['prompt']}"
 
-        try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash-image",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=["Text", "Image"],
-                ),
-            )
+        # Retry up to 3 times on 503/UNAVAILABLE
+        image_saved = False
+        for img_attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash-image",
+                    contents=full_prompt,
+                    config=types.GenerateContentConfig(
+                        response_modalities=["Text", "Image"],
+                    ),
+                )
 
-            image_saved = False
-            for part in response.candidates[0].content.parts:
-                if part.inline_data is not None:
-                    img = PILImage.open(BytesIO(part.inline_data.data))
-                    img.save(filepath, "PNG")
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data is not None:
+                        img = PILImage.open(BytesIO(part.inline_data.data))
+                        img.save(filepath, "PNG")
 
-                    # Thumbnail
-                    ratio = 200 / img.width
-                    img_thumb = img.resize((200, int(img.height * ratio)), PILImage.LANCZOS)
-                    img_thumb.save(thumb_dir / filename, "PNG")
-                    image_saved = True
+                        ratio = 200 / img.width
+                        img_thumb = img.resize((200, int(img.height * ratio)), PILImage.LANCZOS)
+                        img_thumb.save(thumb_dir / filename, "PNG")
+                        image_saved = True
+                        break
+                break
+
+            except Exception as e:
+                err_str = str(e)
+                if ("503" in err_str or "UNAVAILABLE" in err_str or "overloaded" in err_str.lower()) and img_attempt < 2:
+                    wait = [10, 30][img_attempt]
+                    callback("image_start", {
+                        "index": i, "total": total, "day": day, "theme": theme,
+                        "message": f"Day {day} — Model busy, retrying in {wait}s..."
+                    })
+                    time.sleep(wait)
+                else:
+                    callback("image_done", {
+                        "index": i, "total": total, "day": day, "theme": theme,
+                        "filename": None, "success": False,
+                        "message": f"Day {day} — Failed: {str(e)[:100]}"
+                    })
                     break
 
-            if image_saved:
-                generated_files.append({"day": day, "theme": theme, "filename": filename})
-                callback("image_done", {
-                    "index": i, "total": total, "day": day, "theme": theme,
-                    "filename": filename, "success": True,
-                    "message": f"Day {day} — {theme} done"
-                })
-            else:
-                callback("image_done", {
-                    "index": i, "total": total, "day": day, "theme": theme,
-                    "filename": None, "success": False,
-                    "message": f"Day {day} — No image returned"
-                })
-
-        except Exception as e:
+        if image_saved:
+            generated_files.append({"day": day, "theme": theme, "filename": filename})
             callback("image_done", {
                 "index": i, "total": total, "day": day, "theme": theme,
-                "filename": None, "success": False,
-                "message": f"Day {day} — Failed: {str(e)[:100]}"
+                "filename": filename, "success": True,
+                "message": f"Day {day} — {theme} done"
             })
 
         # Rate limiting

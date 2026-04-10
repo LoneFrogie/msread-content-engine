@@ -84,7 +84,7 @@ def humanize_content(client, content: dict, callback: Callable,
     prompt = f"{HUMANIZER_PROMPT}\n\nJSON to humanize:\n{input_json}"
 
     last_error = None
-    attempts = [(0.4, 2), (0.3, 10), (0.3, 20)]
+    attempts = [(0.4, 5), (0.3, 15), (0.3, 30), (0.3, 45)]
     for attempt, (temp, wait) in enumerate(attempts):
         try:
             response = client.models.generate_content(
