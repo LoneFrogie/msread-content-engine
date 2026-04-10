@@ -387,6 +387,47 @@ async def get_pdp_content(session_id: str):
         return _json.load(f)
 
 
+@app.get("/api/videos/{session_id}")
+async def list_videos(session_id: str):
+    """List generated video files for a session."""
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = sessions[session_id]
+    video_dir = session.output_dir / "videos"
+    if not video_dir.exists():
+        return {"videos": []}
+
+    videos = []
+    for vid in sorted(video_dir.glob("*.mp4")):
+        size_mb = vid.stat().st_size / (1024 * 1024)
+        videos.append({
+            "filename": vid.name,
+            "scene": vid.stem.replace("video_", ""),
+            "size_mb": round(size_mb, 1),
+        })
+    return {"videos": videos}
+
+
+@app.get("/api/video/{session_id}/{filename}")
+async def serve_video(session_id: str, filename: str):
+    """Serve a specific video file."""
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = sessions[session_id]
+    video_path = session.output_dir / "videos" / filename
+
+    if not video_path.exists() or not filename.endswith(".mp4"):
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    return FileResponse(
+        video_path,
+        media_type="video/mp4",
+        filename=filename,
+    )
+
+
 if __name__ == "__main__":
     print()
     print("  +================================================+")

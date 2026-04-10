@@ -19,6 +19,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from PIL import Image as PILImage
 from humanizer import humanize_content
+from video_engine import generate_videos
 
 # ── Brand constants ──
 BRAND_NAME = "MS. READ"
@@ -798,6 +799,11 @@ def package_output(output_dir: Path, callback: Callable) -> Path:
         if image_dir.exists():
             for img_file in sorted(image_dir.glob("*.png")):
                 zf.write(img_file, f"images/{img_file.name}")
+        # Add videos
+        video_dir = output_dir / "videos"
+        if video_dir.exists():
+            for vid_file in sorted(video_dir.glob("*.mp4")):
+                zf.write(vid_file, f"videos/{vid_file.name}")
 
     size_mb = zip_path.stat().st_size / (1024 * 1024)
     callback("status", {
@@ -833,7 +839,12 @@ def run_pipeline(api_key: str, creative_brief: str, output_dir: Path, callback: 
         # Phase 3: Generate images
         generate_images(client, creative_brief, excel_path, output_dir, callback)
 
-        # Phase 4: Package
+        # Phase 4: Generate videos from best images
+        image_dir = output_dir / "images"
+        generate_videos(client, image_dir, output_dir, "MS. READ Collection",
+                        creative_brief, callback, max_videos=4)
+
+        # Phase 5: Package
         package_output(output_dir, callback)
 
     except Exception as e:

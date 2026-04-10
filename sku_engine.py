@@ -27,6 +27,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from PIL import Image as PILImage
 from humanizer import humanize_content
+from video_engine import generate_videos
 
 # ── Brand constants ──
 BRAND_NAME = "MS. READ"
@@ -872,6 +873,11 @@ def package_sku_output(output_dir: Path, product_title: str, callback: Callable)
         if image_dir.exists():
             for img_file in sorted(image_dir.glob("*.png")):
                 zf.write(img_file, f"images/{img_file.name}")
+        # Add videos
+        video_dir = output_dir / "videos"
+        if video_dir.exists():
+            for vid_file in sorted(video_dir.glob("*.mp4")):
+                zf.write(vid_file, f"videos/{vid_file.name}")
 
     size_mb = zip_path.stat().st_size / (1024 * 1024)
     callback("status", {
@@ -911,7 +917,12 @@ def run_sku_pipeline(api_key: str, product_url: str, creative_brief: str,
         generate_sku_images(client, content, product, creative_brief, output_dir, callback,
                             avatar_images=avatar_images)
 
-        # Phase 5: Package
+        # Phase 5: Generate videos from best images
+        image_dir = output_dir / "images"
+        generate_videos(client, image_dir, output_dir, product["title"],
+                        creative_brief, callback, max_videos=4)
+
+        # Phase 6: Package
         package_sku_output(output_dir, product["title"], callback)
 
     except Exception as e:

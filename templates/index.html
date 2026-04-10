@@ -685,6 +685,39 @@
         .btn-copy:hover { border-color: var(--brand-black); color: var(--brand-black); }
         .btn-copy.copied { border-color: var(--brand-green); color: var(--brand-green); }
 
+        /* Video Grid */
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.2rem;
+        }
+        .video-slot {
+            background: var(--brand-offwhite);
+            border: 1px solid var(--brand-grey);
+            padding: 0.6rem;
+        }
+        .video-slot video {
+            width: 100%;
+            aspect-ratio: 9/16;
+            object-fit: cover;
+            background: #000;
+        }
+        .video-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.5rem;
+            font-size: 0.78rem;
+        }
+        .video-scene {
+            font-weight: 500;
+            color: var(--brand-black);
+            text-transform: capitalize;
+        }
+        .video-size {
+            color: var(--brand-dark-grey);
+        }
+
         /* Responsive */
         @media (max-width: 600px) {
             .container { padding: 1rem; }
@@ -763,6 +796,7 @@ const CALENDAR_PHASES = [
     { key: "humanizing", label: "Humanizer" },
     { key: "building_excel", label: "Excel" },
     { key: "generating_images", label: "Images" },
+    { key: "generating_videos", label: "Videos" },
     { key: "embedding", label: "Embed" },
     { key: "packaging", label: "Package" },
     { key: "done", label: "Done" },
@@ -774,6 +808,7 @@ const SKU_PHASES = [
     { key: "humanizing", label: "Humanizer" },
     { key: "building_excel", label: "Excel" },
     { key: "generating_images", label: "Images" },
+    { key: "generating_videos", label: "Videos" },
     { key: "packaging", label: "Package" },
     { key: "done", label: "Done" },
 ];
@@ -814,6 +849,7 @@ function App() {
     const [endTime, setEndTime] = useState(null);
     const [pdpContent, setPdpContent] = useState(null);
     const [copyState, setCopyState] = useState({});
+    const [videos, setVideos] = useState([]);
     const logRef = useRef(null);
 
     useEffect(() => {
@@ -932,6 +968,7 @@ function App() {
         setError(null);
         setEvents([]);
         setImages({});
+        setVideos([]);
         setCurrentPhase(m === "pdp" ? "fetching_product" : m === "sku" ? "fetching_product" : "adapting");
         setImageProgress({ current: 0, total: m === "sku" ? 4 : 30 });
         setStartTime(Date.now());
@@ -945,7 +982,15 @@ function App() {
             const ev = JSON.parse(e.data);
             if (ev.type === "stream_end") {
                 es.close();
-                if (ev.status === "done") { setEndTime(Date.now()); setView("results"); }
+                if (ev.status === "done") {
+                    setEndTime(Date.now());
+                    // Fetch video list
+                    fetch(`/api/videos/${session_id}`)
+                        .then(r => r.json())
+                        .then(data => setVideos(data.videos || []))
+                        .catch(() => {});
+                    setView("results");
+                }
                 else setError("Generation failed. Check the log.");
                 return;
             }
@@ -1519,6 +1564,7 @@ function App() {
                                     <div className="stat-card"><div className="value">5</div><div className="label">Excel Sheets</div></div>
                                     <div className="stat-card"><div className="value">6</div><div className="label">Social Posts</div></div>
                                     <div className="stat-card"><div className="value">{imagesDone}</div><div className="label">AI Images</div></div>
+                                    <div className="stat-card"><div className="value">{videos.length}</div><div className="label">Videos</div></div>
                                     <div className="stat-card"><div className="value">1</div><div className="label">Email Campaign</div></div>
                                 </>
                             ) : (
@@ -1526,6 +1572,7 @@ function App() {
                                     <div className="stat-card"><div className="value">6</div><div className="label">Excel Sheets</div></div>
                                     <div className="stat-card"><div className="value">30</div><div className="label">Days Planned</div></div>
                                     <div className="stat-card"><div className="value">{imagesDone}</div><div className="label">AI Images</div></div>
+                                    <div className="stat-card"><div className="value">{videos.length}</div><div className="label">Videos</div></div>
                                     <div className="stat-card"><div className="value">4</div><div className="label">Blog Posts</div></div>
                                     <div className="stat-card"><div className="value">40</div><div className="label">FB Captions</div></div>
                                 </>
@@ -1565,6 +1612,37 @@ function App() {
                                             </div>
                                         </div>
                                     ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {videos.length > 0 && (
+                        <div className="card">
+                            <h2>Generated Videos</h2>
+                            <p style={{ fontSize: "0.85rem", color: "#888", marginBottom: "1rem" }}>
+                                Short product clips (6 sec, 9:16 vertical) for Reels, TikTok, and Stories
+                            </p>
+                            <div className="video-grid">
+                                {videos.map((vid, i) => (
+                                    <div key={i} className="video-slot">
+                                        <video
+                                            src={`/api/video/${sessionId}/${vid.filename}`}
+                                            controls
+                                            preload="metadata"
+                                            playsInline
+                                        />
+                                        <div className="video-info">
+                                            <span className="video-scene">{vid.scene.replace(/_/g, ' ')}</span>
+                                            <span className="video-size">{vid.size_mb} MB</span>
+                                        </div>
+                                        <a
+                                            href={`/api/video/${sessionId}/${vid.filename}`}
+                                            download={vid.filename}
+                                            className="btn-copy"
+                                            style={{ display: "block", textAlign: "center", marginTop: "0.5rem" }}
+                                        >Download</a>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
