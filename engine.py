@@ -850,7 +850,7 @@ def run_pipeline(api_key: str, creative_brief: str, output_dir: Path, callback: 
         # Phase 4: Generate videos from best images
         image_dir = output_dir / "images"
         generate_videos(client, image_dir, output_dir, "MS. READ Collection",
-                        creative_brief, callback, max_videos=4)
+                        creative_brief, callback, max_videos=4, api_key=api_key)
 
         # Phase 5: Package
         package_output(output_dir, callback)

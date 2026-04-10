@@ -55,7 +55,8 @@ def _classify_scene(theme: str) -> str:
 
 def generate_videos(client, image_dir: Path, output_dir: Path,
                     product_title: str, creative_brief: str,
-                    callback: Callable, max_videos: int = 4) -> list:
+                    callback: Callable, max_videos: int = 4,
+                    api_key: str = None) -> list:
     """
     Generate short video clips from AI-generated product images.
 
@@ -192,7 +193,12 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
                     with open(filepath, "wb") as f:
                         f.write(video.video_bytes)
                 elif video.uri:
-                    resp = requests.get(video.uri, timeout=120)
+                    download_url = video.uri
+                    if api_key and "?" in download_url:
+                        download_url += f"&key={api_key}"
+                    elif api_key:
+                        download_url += f"?key={api_key}"
+                    resp = requests.get(download_url, timeout=120)
                     resp.raise_for_status()
                     with open(filepath, "wb") as f:
                         f.write(resp.content)

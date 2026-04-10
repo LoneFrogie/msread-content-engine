@@ -935,7 +935,7 @@ def run_sku_pipeline(api_key: str, product_url: str, creative_brief: str,
         # Phase 5: Generate videos from best images
         image_dir = output_dir / "images"
         generate_videos(client, image_dir, output_dir, product["title"],
-                        creative_brief, callback, max_videos=4)
+                        creative_brief, callback, max_videos=4, api_key=api_key)
 
         # Phase 6: Package
         package_sku_output(output_dir, product["title"], callback)
