@@ -198,10 +198,11 @@ Respond with ONLY valid JSON."""
 
 
 def _gemini_call(client, prompt: str, max_tokens: int = 32000, temperature: float = 0.7) -> dict:
-    """Make a Gemini text call with retry on JSON parse failure."""
+    """Make a Gemini text call with retry on JSON parse failure and API errors."""
     import re as _re
     last_error = None
-    for attempt, temp in enumerate([temperature, 0.4]):
+    attempts = [(temperature, 2), (0.5, 10), (0.4, 20)]
+    for attempt, (temp, wait) in enumerate(attempts):
         try:
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
@@ -242,8 +243,15 @@ def _gemini_call(client, prompt: str, max_tokens: int = 32000, temperature: floa
             return json.loads(repaired)
         except (json.JSONDecodeError, ValueError) as e:
             last_error = e
-            if attempt == 0:
-                time.sleep(2)
+            if attempt < len(attempts) - 1:
+                time.sleep(wait)
+        except Exception as e:
+            last_error = e
+            err_str = str(e)
+            if ("503" in err_str or "UNAVAILABLE" in err_str or "overloaded" in err_str.lower()) and attempt < len(attempts) - 1:
+                time.sleep(wait)
+            else:
+                raise
     raise last_error
 
 

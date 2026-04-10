@@ -84,7 +84,8 @@ def humanize_content(client, content: dict, callback: Callable,
     prompt = f"{HUMANIZER_PROMPT}\n\nJSON to humanize:\n{input_json}"
 
     last_error = None
-    for attempt, temp in enumerate([0.4, 0.3]):
+    attempts = [(0.4, 2), (0.3, 10), (0.3, 20)]
+    for attempt, (temp, wait) in enumerate(attempts):
         try:
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
@@ -121,13 +122,17 @@ def humanize_content(client, content: dict, callback: Callable,
 
         except (json.JSONDecodeError, ValueError) as e:
             last_error = e
-            if attempt == 0:
+            if attempt < len(attempts) - 1:
                 logger.warning(f"Humanizer JSON parse failed, retrying: {e}")
-                time.sleep(1)
+                time.sleep(wait)
         except Exception as e:
-            logger.warning(f"Humanizer failed: {e}")
             last_error = e
-            break
+            err_str = str(e)
+            if ("503" in err_str or "UNAVAILABLE" in err_str or "overloaded" in err_str.lower()) and attempt < len(attempts) - 1:
+                logger.warning(f"Humanizer API overloaded, waiting {wait}s")
+                time.sleep(wait)
+            else:
+                break
 
     # If humanizer fails, return original content (non-fatal)
     logger.warning(f"Humanizer could not process content, returning original: {last_error}")

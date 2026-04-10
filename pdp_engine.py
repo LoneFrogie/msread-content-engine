@@ -156,9 +156,10 @@ def generate_pdp_content(client, product: dict, creative_brief: str, callback: C
         content_parts.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
     content_parts.append(types.Part.from_text(text=prompt_text))
 
-    # Try up to 2 attempts
+    # Try up to 3 attempts with backoff for API errors (503) and JSON failures
     last_error = None
-    for attempt, temp in enumerate([0.6, 0.3]):
+    attempts = [(0.6, 2), (0.4, 10), (0.3, 20)]
+    for attempt, (temp, wait) in enumerate(attempts):
         try:
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
@@ -188,9 +189,17 @@ def generate_pdp_content(client, product: dict, creative_brief: str, callback: C
 
         except (json.JSONDecodeError, ValueError) as e:
             last_error = e
-            if attempt == 0:
+            if attempt < len(attempts) - 1:
                 callback("status", {"phase": "generating_content", "message": "Retrying with adjusted parameters..."})
-                time.sleep(2)
+                time.sleep(wait)
+        except Exception as e:
+            last_error = e
+            err_str = str(e)
+            if ("503" in err_str or "UNAVAILABLE" in err_str or "overloaded" in err_str.lower()) and attempt < len(attempts) - 1:
+                callback("status", {"phase": "generating_content", "message": f"Model busy, retrying in {wait}s..."})
+                time.sleep(wait)
+            else:
+                raise
 
     raise last_error
 

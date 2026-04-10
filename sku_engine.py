@@ -323,9 +323,10 @@ def generate_sku_content(client, product: dict, creative_brief: str, callback: C
         creative_brief_section=creative_brief_section,
     )
 
-    # Try up to 2 attempts (increase tokens, lower temp on retry)
+    # Try up to 3 attempts with backoff for API errors (503) and JSON failures
     last_error = None
-    for attempt, (temp, tokens) in enumerate([(0.7, 32000), (0.4, 32000)]):
+    attempts = [(0.7, 32000, 2), (0.5, 32000, 10), (0.4, 32000, 20)]
+    for attempt, (temp, tokens, wait) in enumerate(attempts):
         try:
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
@@ -355,10 +356,22 @@ def generate_sku_content(client, product: dict, creative_brief: str, callback: C
             return content
         except (json.JSONDecodeError, ValueError) as e:
             last_error = e
-            if attempt == 0:
-                logger.warning(f"JSON parse failed on attempt 1, retrying with lower temperature: {e}")
+            if attempt < len(attempts) - 1:
+                logger.warning(f"JSON parse failed on attempt {attempt + 1}, retrying: {e}")
                 callback("status", {"phase": "generating_content", "message": "Content generation retry (formatting fix)..."})
-                time.sleep(2)
+                time.sleep(wait)
+        except Exception as e:
+            last_error = e
+            err_str = str(e)
+            if "503" in err_str or "UNAVAILABLE" in err_str or "overloaded" in err_str.lower():
+                if attempt < len(attempts) - 1:
+                    logger.warning(f"API overloaded on attempt {attempt + 1}, waiting {wait}s: {e}")
+                    callback("status", {"phase": "generating_content", "message": f"Model busy, retrying in {wait}s..."})
+                    time.sleep(wait)
+                else:
+                    raise
+            else:
+                raise
 
     raise last_error
 
