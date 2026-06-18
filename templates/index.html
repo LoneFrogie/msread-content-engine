@@ -6,7 +6,11 @@
     <title>MS. READ Content Engine</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Pinned to Babel 7: v8 defaults JSX to the automatic runtime (emits
+         `import {jsx} from "react/jsx-runtime"`), which breaks in-browser
+         <script type="text/babel"> transpile against the UMD React globals.
+         Do NOT drop the version — the unpinned URL now resolves to 8.x. -->
+    <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
     <style>
