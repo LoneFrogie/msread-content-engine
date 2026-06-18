@@ -766,21 +766,11 @@ def generate_sku_images(client, content: dict, product: dict, creative_brief: st
             "message": f"Generating {scene}..."
         })
 
-        # Build multimodal content parts
+        # Build multimodal content parts. Product photos go FIRST; the avatar
+        # goes LAST (closest to the prompt) so the model weights it most for
+        # identity. The avatar drives FACE + SKIN TONE only — never body size,
+        # which stays plus-size per the brand prefix.
         content_parts = []
-
-        # --- Avatar reference (round-robin across selected avatars) ---
-        if avatar_images:
-            avatar_idx = i % len(avatar_images)
-            content_parts.append(types.Part.from_text(
-                text="AVATAR REFERENCE — This is the digital model/avatar. "
-                     "The generated image MUST show THIS EXACT person (same face, body type, skin tone, hair). "
-                     "Do NOT change the person's appearance."
-            ))
-            content_parts.append(types.Part.from_bytes(
-                data=avatar_images[avatar_idx],
-                mime_type="image/png",
-            ))
 
         # --- Product reference (send ALL product photos) ---
         if ref_images:
@@ -788,7 +778,9 @@ def generate_sku_images(client, content: dict, product: dict, creative_brief: st
                 text=f"PRODUCT REFERENCE — These {len(ref_images)} images show the EXACT garment to feature. "
                      "Study every detail: fabric pattern, color, print, cut, neckline, sleeves, buttons, embellishments. "
                      "The generated image MUST reproduce this EXACT garment faithfully. "
-                     "Do NOT invent a different design — copy the garment precisely."
+                     "Do NOT invent a different design — copy the garment precisely. "
+                     "These photos may show a model — IGNORE that person's face, skin tone, and body; "
+                     "use these images ONLY to copy the garment."
             ))
             for ref_img in ref_images:
                 content_parts.append(types.Part.from_bytes(
@@ -796,11 +788,27 @@ def generate_sku_images(client, content: dict, product: dict, creative_brief: st
                     mime_type="image/png",
                 ))
 
+        # --- Avatar reference: FACE + SKIN TONE only (round-robin) ---
+        if avatar_images:
+            avatar_idx = i % len(avatar_images)
+            content_parts.append(types.Part.from_text(
+                text="FACE & SKIN REFERENCE — This is the model's face and skin-tone reference. "
+                     "The generated model's facial features and skin colour MUST match this person exactly. "
+                     "Use this image ONLY for the face and skin tone — do NOT copy this person's body size or build."
+            ))
+            content_parts.append(types.Part.from_bytes(
+                data=avatar_images[avatar_idx],
+                mime_type="image/png",
+            ))
+
         # --- Scene instruction ---
         if avatar_images:
             avatar_instruction = (
-                "CRITICAL: Show the AVATAR person (from the avatar reference above) wearing the PRODUCT garment (from the product reference above). "
-                "Keep the avatar's face, body, skin tone, and hair exactly as shown. Dress them in this exact garment. "
+                "IDENTITY RULES (critical): The model's FACE and SKIN COLOUR must match the FACE & SKIN reference exactly. "
+                "Keep the model PLUS-SIZE and full-figured — do NOT slim or reshape the body to match that reference; "
+                "only the face and skin tone come from it, never the body size. "
+                "If the product photos show a different model, ignore that person's face entirely. "
+                "Dress this model in the EXACT product garment shown in the product reference. "
             )
         else:
             avatar_instruction = (
