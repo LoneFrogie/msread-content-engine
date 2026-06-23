@@ -12,6 +12,7 @@ existing /api/download-excel endpoint serves.
 """
 
 import json
+import os
 import time
 from pathlib import Path
 from typing import Callable
@@ -25,6 +26,10 @@ from sku_engine import _parse_json_robust, BRAND_NAME
 
 # Default brand references (the art director's mix). Overridable from the UI.
 DEFAULT_BRANDS = "J.Crew, Net-a-Porter, H&M, Hanya, Mis Claire, Machino, Hani Mokhta"
+
+# Text-generation model. The themes are written by Claude Sonnet 4.6 when
+# ANTHROPIC_API_KEY is set; otherwise the engine falls back to Gemini 2.5 Flash.
+ANTHROPIC_MODEL = "claude-sonnet-4-6"
 
 # Brand colours for the Excel planner
 NAVY = "1A2238"
@@ -84,7 +89,11 @@ Respond with ONLY valid JSON, no markdown code fences."""
 
 def generate_ideas(client, theme_direction: str, brands: str, month: str,
                    num_days: int, callback: Callable) -> dict:
-    """Call Gemini to produce the structured month-of-themes JSON."""
+    """Produce the structured month-of-themes JSON.
+
+    Uses the Claude API (Sonnet 4.6) when ANTHROPIC_API_KEY is set; otherwise
+    falls back to Gemini 2.5 Flash so the tab keeps working without the key.
+    """
     callback("status", {"phase": "generating_ideas",
                         "message": f"Planning {num_days} days of {month} content themes..."})
 
@@ -96,6 +105,67 @@ def generate_ideas(client, theme_direction: str, brands: str, month: str,
         num_days=num_days,
     )
 
+    if os.getenv("ANTHROPIC_API_KEY"):
+        try:
+            content = _ideas_via_claude(prompt_text, callback)
+            callback("status", {"phase": "ideas_generated",
+                                "message": f"{num_days}-day theme plan ready (Claude {ANTHROPIC_MODEL})"})
+            return content
+        except Exception as e:
+            callback("status", {"phase": "generating_ideas",
+                                "message": f"Claude unavailable ({str(e)[:70]}) — falling back to Gemini..."})
+
+    content = _ideas_via_gemini(client, prompt_text, callback)
+    callback("status", {"phase": "ideas_generated",
+                        "message": f"{num_days}-day theme plan ready"})
+    return content
+
+
+def _ideas_via_claude(prompt_text: str, callback: Callable) -> dict:
+    """Generate the themes JSON via the Claude API (Sonnet 4.6)."""
+    import anthropic  # lazy import so a missing dep never breaks the tab
+
+    aclient = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+    last_error = None
+    attempts = [(0.9, 5), (0.6, 15), (0.4, 30)]
+    for attempt, (temp, wait) in enumerate(attempts):
+        try:
+            resp = aclient.messages.create(
+                model=ANTHROPIC_MODEL,
+                max_tokens=8000,
+                temperature=temp,
+                system="You are a precise JSON generator. Output ONLY a single valid JSON object — no markdown fences, no commentary.",
+                messages=[{"role": "user", "content": prompt_text}],
+            )
+            text = "".join(
+                b.text for b in resp.content if getattr(b, "type", None) == "text"
+            ).strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1]
+            if text.endswith("```"):
+                text = text.rsplit("```", 1)[0]
+            return _parse_json_robust(text.strip())
+        except (json.JSONDecodeError, ValueError) as e:
+            last_error = e
+            if attempt < len(attempts) - 1:
+                callback("status", {"phase": "generating_ideas",
+                                    "message": "Retrying (adjusting parameters)..."})
+                time.sleep(wait)
+        except Exception as e:
+            last_error = e
+            es = str(e)
+            transient = any(c in es for c in ("429", "500", "502", "503", "529")) or "overloaded" in es.lower()
+            if transient and attempt < len(attempts) - 1:
+                callback("status", {"phase": "generating_ideas",
+                                    "message": f"Claude busy, retrying in {wait}s..."})
+                time.sleep(wait)
+            else:
+                raise
+    raise last_error
+
+
+def _ideas_via_gemini(client, prompt_text: str, callback: Callable) -> dict:
+    """Generate the themes JSON via Gemini 2.5 Flash (fallback)."""
     last_error = None
     attempts = [(0.85, 5), (0.7, 15), (0.5, 30), (0.4, 45)]
     for attempt, (temp, wait) in enumerate(attempts):
@@ -120,12 +190,8 @@ def generate_ideas(client, theme_direction: str, brands: str, month: str,
                 text = text.split("\n", 1)[1]
             if text.endswith("```"):
                 text = text.rsplit("```", 1)[0]
-            text = text.strip()
 
-            content = _parse_json_robust(text)
-            callback("status", {"phase": "ideas_generated",
-                                "message": f"{num_days}-day theme plan ready"})
-            return content
+            return _parse_json_robust(text.strip())
 
         except (json.JSONDecodeError, ValueError) as e:
             last_error = e
