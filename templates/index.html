@@ -824,6 +824,18 @@ const PDP_PHASES = [
     { key: "done", label: "Done" },
 ];
 
+const IDEAS_PHASES = [
+    { key: "generating_ideas", label: "Ideating" },
+    { key: "building_excel", label: "Excel" },
+    { key: "done", label: "Done" },
+];
+
+// Default planning brief (the art director's brief — editable in the UI).
+const DEFAULT_IDEA_BRIEF = "Content ideas must be a mixture of J.Crew, Net-a-Porter, H&M, and local brands such as Hanya, Mis Claire, Machino, Hani Mokhta. Theme direction should be everyday, lifestyle-led pieces like \"Running Late Go-To Outfit\", \"Weekend Getaway Pieces\", \"1 Blouse, 3 Ways\" — soft-selling that builds the brand the way H&M and the local brands do.";
+const DEFAULT_IDEA_BRANDS = "J.Crew, Net-a-Porter, H&M, Hanya, Mis Claire, Machino, Hani Mokhta";
+const NEXT_MONTH_NAME = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
+    .toLocaleString("en-US", { month: "long" });
+
 function App() {
     const [mode, setMode] = useState("calendar"); // "calendar" | "sku" | "pdp"
     const [view, setView] = useState("input");
@@ -854,6 +866,11 @@ function App() {
     const [pdpContent, setPdpContent] = useState(null);
     const [copyState, setCopyState] = useState({});
     const [videos, setVideos] = useState([]);
+    // Idea / Theme Planner state
+    const [ideaBrief, setIdeaBrief] = useState(DEFAULT_IDEA_BRIEF);
+    const [ideaBrands, setIdeaBrands] = useState(DEFAULT_IDEA_BRANDS);
+    const [ideaMonth, setIdeaMonth] = useState(NEXT_MONTH_NAME);
+    const [ideasContent, setIdeasContent] = useState(null);
     const logRef = useRef(null);
 
     useEffect(() => {
@@ -968,12 +985,62 @@ function App() {
         } catch (err) { setError("Network error: " + err.message); }
     }
 
+    // ── Idea / Theme Planner Generation ──
+    async function handleGenerateIdeas() {
+        _resetProgress("ideas");
+        setIdeasContent(null);
+
+        try {
+            const res = await fetch("/api/generate-ideas", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    theme_direction: ideaBrief,
+                    brands: ideaBrands,
+                    month: ideaMonth,
+                    num_days: 30,
+                }),
+            });
+            if (!res.ok) { setError((await res.json()).detail || "Failed"); return; }
+
+            const { session_id } = await res.json();
+            setSessionId(session_id);
+            setActiveMode("ideas");
+            setView("progress");
+
+            const es = new EventSource(`/api/progress/${session_id}`);
+            es.onmessage = (e) => {
+                const ev = JSON.parse(e.data);
+                if (ev.type === "stream_end") {
+                    es.close();
+                    if (ev.status === "done") {
+                        setEndTime(Date.now());
+                        fetch(`/api/ideas-content/${session_id}`)
+                            .then(r => r.json())
+                            .then(data => { setIdeasContent(data); setView("results"); })
+                            .catch(() => setView("results"));
+                    } else {
+                        setError("Generation failed. Check the log.");
+                    }
+                    return;
+                }
+                setEvents((prev) => [...prev, ev]);
+                if (ev.type === "status" && ev.phase) {
+                    setCurrentPhase(ev.phase);
+                    if (ev.ideas_content) setIdeasContent(ev.ideas_content);
+                }
+                if (ev.type === "error") setError(ev.message);
+            };
+            es.onerror = () => es.close();
+        } catch (err) { setError("Network error: " + err.message); }
+    }
+
     function _resetProgress(m) {
         setError(null);
         setEvents([]);
         setImages({});
         setVideos([]);
-        setCurrentPhase(m === "pdp" ? "fetching_product" : m === "sku" ? "fetching_product" : "adapting");
+        setCurrentPhase(m === "ideas" ? "generating_ideas" : m === "pdp" ? "fetching_product" : m === "sku" ? "fetching_product" : "adapting");
         setImageProgress({ current: 0, total: m === "sku" ? 4 : 30 });
         setStartTime(Date.now());
         setEndTime(null);
@@ -1083,6 +1150,29 @@ function App() {
         copyToClipboard("full_pdp", lines.join("\n"));
     }
 
+    function copyFullIdeas() {
+        if (!ideasContent) return;
+        const lines = [];
+        const title = `${ideasContent.month ? ideasContent.month + " — " : ""}${ideasContent.theme_name || "Content Theme Calendar"}`;
+        lines.push(title);
+        if (ideasContent.content_mix) lines.push(ideasContent.content_mix);
+        (ideasContent.weeks || []).forEach(wk => {
+            lines.push("", wk.week_label || "");
+            (wk.days || []).forEach(d => {
+                lines.push(`Day ${d.day}: ${d.title}${d.format ? " [" + d.format + "]" : ""}`);
+                if (d.subtitle) lines.push(`   ${d.subtitle}`);
+                if (d.hook) lines.push(`   "${d.hook}"`);
+            });
+        });
+        if ((ideasContent.bonus_themes || []).length) {
+            lines.push("", "Bonus / Swap-in Themes");
+            ideasContent.bonus_themes.forEach(grp => {
+                lines.push(`• ${grp.category}: ${(grp.items || []).join(" · ")}`);
+            });
+        }
+        copyToClipboard("full_ideas", lines.join("\n"));
+    }
+
     function resetToInput() {
         setView("input");
         setBrief("");
@@ -1096,15 +1186,22 @@ function App() {
         setStartTime(null);
         setEndTime(null);
         setPdpContent(null);
+        setIdeasContent(null);
         setCopyState({});
     }
 
-    const phases = activeMode === "pdp" ? PDP_PHASES : activeMode === "sku" ? SKU_PHASES : CALENDAR_PHASES;
+    const phases = activeMode === "ideas" ? IDEAS_PHASES : activeMode === "pdp" ? PDP_PHASES : activeMode === "sku" ? SKU_PHASES : CALENDAR_PHASES;
     const phaseOrder = phases.map(p => p.key);
     const currentPhaseIdx = phaseOrder.indexOf(currentPhase);
 
     const overallProgress = (() => {
         if (currentPhase === "done") return 100;
+        if (activeMode === "ideas") {
+            if (currentPhase === "building_excel") return 80;
+            if (currentPhase === "ideas_generated") return 70;
+            if (currentPhase === "generating_ideas") return 40;
+            return 5;
+        }
         if (currentPhase === "packaging") return 95;
         if (currentPhase === "embedding") return 90;
         if (currentPhase === "generating_images") {
@@ -1154,6 +1251,10 @@ function App() {
                         <button className={`mode-tab ${mode === "pdp" ? "active" : ""}`} onClick={() => setMode("pdp")}>
                             Product Description
                             <span className="tab-desc">Optimized PDP copy from product URL & images</span>
+                        </button>
+                        <button className={`mode-tab ${mode === "ideas" ? "active" : ""}`} onClick={() => setMode("ideas")}>
+                            30-Day Ideas
+                            <span className="tab-desc">A month of content themes &amp; soft-sell hooks</span>
                         </button>
                     </div>
 
@@ -1332,6 +1433,64 @@ function App() {
                             </div>
                         </>
                     )}
+
+                    {/* ── IDEAS / THEME PLANNER MODE ── */}
+                    {mode === "ideas" && (
+                        <>
+                            <div className="card">
+                                <h2>Theme Direction</h2>
+                                <p className="form-hint">
+                                    Describe the planning direction for the month. The engine will generate a 30-day calendar of content <strong>themes</strong> &mdash; soft-sell, lifestyle-led ideas (not the finished posts) &mdash; in the spirit of your reference brands.
+                                </p>
+                                <textarea
+                                    className="brief-input"
+                                    style={{ minHeight: "140px" }}
+                                    value={ideaBrief}
+                                    onChange={(e) => setIdeaBrief(e.target.value)}
+                                />
+
+                                <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginTop: "1rem" }}>
+                                    <div style={{ flex: "1 1 60%", minWidth: "220px" }}>
+                                        <label className="form-label">Reference Brands</label>
+                                        <input
+                                            type="text"
+                                            className="url-input"
+                                            value={ideaBrands}
+                                            onChange={(e) => setIdeaBrands(e.target.value)}
+                                        />
+                                    </div>
+                                    <div style={{ flex: "1 1 25%", minWidth: "120px" }}>
+                                        <label className="form-label">Month</label>
+                                        <input
+                                            type="text"
+                                            className="url-input"
+                                            placeholder="July"
+                                            value={ideaMonth}
+                                            onChange={(e) => setIdeaMonth(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <button className="btn-primary" onClick={handleGenerateIdeas} disabled={!ideaBrief.trim()}>
+                                    Generate 30-Day Theme Calendar
+                                </button>
+                            </div>
+
+                            <div className="card">
+                                <h2>What You'll Get</h2>
+                                <p className="form-hint" style={{ marginBottom: "1rem" }}>
+                                    A month of planning-ready content themes, grouped by week, plus swap-in ideas &mdash; downloadable as an Excel planner.
+                                </p>
+                                <div className="results-summary">
+                                    <div className="stat-card"><div className="value">30</div><div className="label">Daily Themes</div></div>
+                                    <div className="stat-card"><div className="value">~5</div><div className="label">Weekly Sub-themes</div></div>
+                                    <div className="stat-card"><div className="value" style={{ fontSize: "1.2rem" }}>Hooks</div><div className="label">Caption openers</div></div>
+                                    <div className="stat-card"><div className="value" style={{ fontSize: "1.2rem" }}>Formats</div><div className="label">Carousel / Reel / etc.</div></div>
+                                    <div className="stat-card"><div className="value" style={{ fontSize: "1.2rem" }}>Bonus</div><div className="label">Swap-in themes</div></div>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </>
             )}
 
@@ -1339,7 +1498,7 @@ function App() {
             {view === "progress" && (
                 <>
                     <div className="card">
-                        <h2>{activeMode === "pdp" ? "Optimizing Product Description" : activeMode === "sku" ? "Generating Product Content" : "Generating Your Content Pack"}</h2>
+                        <h2>{activeMode === "ideas" ? "Planning Your Theme Calendar" : activeMode === "pdp" ? "Optimizing Product Description" : activeMode === "sku" ? "Generating Product Content" : "Generating Your Content Pack"}</h2>
 
                         {/* Product preview (SKU mode) */}
                         {productPreview && (
@@ -1539,7 +1698,78 @@ function App() {
                 </>
             )}
 
-            {view === "results" && activeMode !== "pdp" && (
+            {/* ── IDEAS / THEME PLANNER RESULTS ── */}
+            {view === "results" && activeMode === "ideas" && ideasContent && (
+                <>
+                    <div className="card">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", flexWrap: "wrap" }}>
+                            <div>
+                                <div className="product-title" style={{ fontSize: "1.3rem" }}>
+                                    {ideasContent.month ? `${ideasContent.month} — ` : ""}{ideasContent.theme_name || "Content Theme Calendar"}
+                                </div>
+                                {ideasContent.content_mix && (
+                                    <p style={{ fontSize: "0.85rem", color: "var(--brand-dark-grey)", marginTop: "0.3rem" }}>{ideasContent.content_mix}</p>
+                                )}
+                            </div>
+                            <div className="pdp-actions">
+                                <button className={`btn-copy ${copyState.full_ideas ? "copied" : ""}`} onClick={copyFullIdeas}>
+                                    {copyState.full_ideas ? "Copied!" : "Copy All"}
+                                </button>
+                                <a className="btn-copy" href={`/api/download-excel/${sessionId}`}>Download Excel</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    {(ideasContent.weeks || []).map((wk, wi) => (
+                        <div className="card pdp-preview" key={wi}>
+                            <div className="pdp-section">
+                                <h3>{wk.week_label || `Week ${wi + 1}`}</h3>
+                                <div className="pdp-styling">
+                                    {(wk.days || []).map((d, di) => (
+                                        <div key={di} className="style-item" style={{ display: "flex", gap: "0.6rem", alignItems: "baseline" }}>
+                                            <span className="day-badge" style={{ minWidth: "48px" }}>Day {d.day}</span>
+                                            <span style={{ flex: 1 }}>
+                                                <span className="style-name">{d.title}</span>
+                                                {d.format && <span style={{ fontSize: "0.7rem", color: "var(--brand-coral)", marginLeft: "0.4rem", textTransform: "uppercase", letterSpacing: "0.5px" }}>{d.format}</span>}
+                                                <br /><span className="style-desc">{d.subtitle}</span>
+                                                {d.hook && <><br /><span style={{ fontSize: "0.8rem", color: "var(--brand-dark-grey)", fontStyle: "italic" }}>&ldquo;{d.hook}&rdquo;</span></>}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+
+                    {(ideasContent.bonus_themes || []).length > 0 && (
+                        <div className="card pdp-preview">
+                            <div className="pdp-section">
+                                <h3>Bonus / Swap-in Themes</h3>
+                                {ideasContent.bonus_themes.map((grp, gi) => (
+                                    <div key={gi} style={{ marginBottom: "0.8rem" }}>
+                                        <div className="benefit-title">{grp.category}</div>
+                                        <div className="style-desc">{(grp.items || []).join(" · ")}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {duration && (
+                        <div className="card" style={{ textAlign: "center" }}>
+                            <p style={{ color: "var(--brand-dark-grey)", fontSize: "0.85rem" }}>
+                                Generated in {Math.floor(duration/60)}:{String(duration%60).padStart(2,'0')}
+                            </p>
+                        </div>
+                    )}
+
+                    <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                        <button className="btn-secondary" onClick={resetToInput}>Plan Another Month</button>
+                    </div>
+                </>
+            )}
+
+            {view === "results" && activeMode !== "pdp" && activeMode !== "ideas" && (
                 <>
                     <div className="card" style={{ textAlign: "center" }}>
                         <h2 style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>

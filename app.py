@@ -33,6 +33,7 @@ import uvicorn
 from engine import run_pipeline
 from sku_engine import run_sku_pipeline
 from pdp_engine import run_pdp_pipeline
+from ideas_engine import run_ideas_pipeline
 
 app = FastAPI(title="MS. READ Content Engine")
 
@@ -87,6 +88,13 @@ class GenerateSkuRequest(BaseModel):
 class GeneratePdpRequest(BaseModel):
     product_url: str
     creative_brief: str = ""
+
+
+class GenerateIdeasRequest(BaseModel):
+    theme_direction: str = ""
+    brands: str = ""
+    month: str = ""
+    num_days: int = 30
 
 
 @app.get("/")
@@ -228,6 +236,72 @@ async def start_pdp_generation(req: GeneratePdpRequest):
     thread.start()
 
     return {"session_id": session_id, "mode": "pdp"}
+
+
+@app.post("/api/generate-ideas")
+async def start_ideas_generation(req: GenerateIdeasRequest):
+    if not GOOGLE_AI_API_KEY:
+        raise HTTPException(
+            status_code=500,
+            detail="GOOGLE_AI_API_KEY not set."
+        )
+
+    cleanup_old_sessions()
+
+    session_id = uuid4().hex[:12]
+    output_dir = OUTPUT_BASE / session_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Reuse the Session fields: creative_brief carries the theme direction.
+    session = Session(
+        session_id=session_id,
+        creative_brief=req.theme_direction.strip(),
+        mode="ideas",
+        status="running",
+        output_dir=output_dir,
+    )
+    sessions[session_id] = session
+
+    def callback(event_type, data):
+        event = {"type": event_type, "timestamp": datetime.now().isoformat(), **data}
+        session.events.append(event)
+        if event_type == "error":
+            session.status = "error"
+            session.error = data.get("message", "Unknown error")
+        elif data.get("phase") == "done":
+            session.status = "done"
+
+    num_days = max(1, min(31, req.num_days or 30))
+    thread = Thread(
+        target=_run_ideas_thread,
+        args=(session, callback, req.brands.strip(), req.month.strip(), num_days),
+        daemon=True,
+    )
+    thread.start()
+
+    return {"session_id": session_id, "mode": "ideas"}
+
+
+def _run_ideas_thread(session: Session, callback, brands: str, month: str, num_days: int):
+    try:
+        run_ideas_pipeline(
+            api_key=GOOGLE_AI_API_KEY,
+            theme_direction=session.creative_brief,
+            brands=brands,
+            month=month,
+            output_dir=session.output_dir,
+            callback=callback,
+            num_days=num_days,
+        )
+    except Exception as e:
+        if session.status != "error":
+            session.status = "error"
+            session.error = str(e)
+            session.events.append({
+                "type": "error",
+                "message": str(e),
+                "timestamp": datetime.now().isoformat(),
+            })
 
 
 def _run_pdp_thread(session: Session, callback):
@@ -384,6 +458,21 @@ async def get_pdp_content(session_id: str):
 
     import json as _json
     with open(pdp_path) as f:
+        return _json.load(f)
+
+
+@app.get("/api/ideas-content/{session_id}")
+async def get_ideas_content(session_id: str):
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = sessions[session_id]
+    ideas_path = session.output_dir / "ideas_content.json"
+    if not ideas_path.exists():
+        raise HTTPException(status_code=404, detail="Ideas not ready yet")
+
+    import json as _json
+    with open(ideas_path) as f:
         return _json.load(f)
 
 
