@@ -16,6 +16,12 @@ from PIL import Image as PILImage
 
 logger = logging.getLogger(__name__)
 
+# Veo model for image-to-video. Google retired veo-2.0-generate-001 from the
+# Gemini API (only Veo 3.1 preview models remain: standard / fast / lite).
+# "fast" balances speed + cost for short social clips. If this key loses access
+# to it, list models at /v1beta/models and pick an available veo-* model.
+VEO_MODEL = "veo-3.1-fast-generate-preview"
+
 # Video prompt templates for different scene types
 VIDEO_SCENE_PROMPTS = {
     "product_showcase": (
@@ -144,7 +150,7 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
 
             # Submit video generation job (image-to-video)
             operation = client.models.generate_videos(
-                model="veo-2.0-generate-001",
+                model=VEO_MODEL,
                 source=types.GenerateVideosSource(
                     prompt=prompt,
                     image=types.Image(
