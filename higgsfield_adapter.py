@@ -13,18 +13,23 @@ It is wired as an ADAPTER so the tab works TODAY and upgrades cleanly:
   * Otherwise it falls back to the proven Google Veo 3.1 image-to-video call
     (identical to the SKU/Calendar tabs), so nothing is blocked on a key.
 
-Everything about the remote call is env-overridable (base URL, model slug),
-so the exact Higgsfield endpoint can be corrected WITHOUT a redeploy:
+Integrates the OFFICIAL Higgsfield REST API (platform.higgsfield.ai, verified
+against docs.higgsfield.ai): upload the still -> POST the DoP image-to-video
+endpoint (camera motion steered by free-text in the prompt — the documented REST
+mechanism) -> poll /requests/{id}/status until "completed" -> download video.url.
+Higgsfield is NOT hosted on fal.ai, so this talks to the official host directly.
 
-    HIGGSFIELD_API_KEY   Higgsfield/fal key. Presence flips on the premium path.
-    FAL_KEY              Alternative key name (fal.ai hosts Higgsfield models).
-    HIGGSFIELD_API_BASE  Default "https://fal.run"
-    HIGGSFIELD_MODEL     Default "fal-ai/higgsfield/dop-i2v"  (image->video, motion presets)
+Credentials (an id + a secret) and endpoint are env-overridable so the route can
+be corrected WITHOUT a redeploy:
+
+    HF_KEY               "id:secret" (checked first), OR
+    HF_API_KEY + HF_API_SECRET     (also HIGGSFIELD_API_KEY + HIGGSFIELD_API_SECRET)
+    HIGGSFIELD_API_BASE  Default "https://platform.higgsfield.ai"
+    HIGGSFIELD_DOP_ENDPOINT  Default "/higgsfield-ai/dop/standard"
 """
 
 import os
 import time
-import base64
 import logging
 from io import BytesIO
 from pathlib import Path
@@ -36,20 +41,31 @@ from PIL import Image as PILImage
 
 logger = logging.getLogger(__name__)
 
-# ── Config (all overridable via env — no redeploy needed to correct) ──
+# ── Config (official Higgsfield REST API; all overridable via env) ──
 VEO_MODEL = "veo-3.1-fast-generate-preview"  # proven fallback (matches video_engine)
-HIGGSFIELD_API_BASE = os.getenv("HIGGSFIELD_API_BASE", "https://fal.run").rstrip("/")
-HIGGSFIELD_MODEL = os.getenv("HIGGSFIELD_MODEL", "fal-ai/higgsfield/dop-i2v")
+HIGGSFIELD_API_BASE = os.getenv("HIGGSFIELD_API_BASE", "https://platform.higgsfield.ai").rstrip("/")
+HIGGSFIELD_DOP_ENDPOINT = os.getenv("HIGGSFIELD_DOP_ENDPOINT", "/higgsfield-ai/dop/standard")
 
 
-def higgsfield_key() -> str:
-    """Return the configured Higgsfield/fal key, or empty string."""
-    return os.getenv("HIGGSFIELD_API_KEY") or os.getenv("FAL_KEY") or ""
+def _higgsfield_auth() -> str:
+    """
+    Build the 'Authorization: Key {id}:{secret}' header value from env, or "".
+    Accepts HF_KEY="id:secret" (checked first), or HF_API_KEY + HF_API_SECRET,
+    or HIGGSFIELD_API_KEY + HIGGSFIELD_API_SECRET.
+    """
+    combined = os.getenv("HF_KEY")
+    if combined and ":" in combined:
+        return f"Key {combined}"
+    key_id = os.getenv("HF_API_KEY") or os.getenv("HIGGSFIELD_API_KEY")
+    secret = os.getenv("HF_API_SECRET") or os.getenv("HIGGSFIELD_API_SECRET")
+    if key_id and secret:
+        return f"Key {key_id}:{secret}"
+    return ""
 
 
 def higgsfield_enabled() -> bool:
-    """True when a premium generation key is configured."""
-    return bool(higgsfield_key())
+    """True when valid Higgsfield credentials (id + secret) are configured."""
+    return bool(_higgsfield_auth())
 
 
 # ── Viral camera-motion presets (Higgsfield's signature) ──
@@ -117,52 +133,73 @@ def _prep_image_bytes(img_path: Path, max_side: int = 1024) -> bytes:
 
 # ── Premium path: Higgsfield (via fal.ai host or custom endpoint) ──
 
-def _higgsfield_clip(image_bytes: bytes, prompt: str, preset_id: str,
-                     out_path: Path, timeout: int = 240) -> Optional[Path]:
+def _higgsfield_clip(image_bytes: bytes, prompt: str, out_path: Path,
+                     timeout: int = 240) -> Optional[Path]:
     """
-    Render one motion clip through Higgsfield. Returns the saved path or None.
+    Render one motion clip through the OFFICIAL Higgsfield DoP API. Returns the
+    saved path, or None on any failure so the caller falls back to Veo.
 
-    Any failure returns None so the caller falls back to Veo — the feature is
-    never blocked by a misconfigured premium endpoint.
+    Flow (docs.higgsfield.ai): the API takes a public image URL, not raw bytes,
+    so first upload the still; then enqueue the DoP image-to-video job (camera
+    motion is carried by the free-text prompt — the documented REST mechanism);
+    then poll /requests/{id}/status until "completed" and download video.url.
     """
-    key = higgsfield_key()
-    if not key:
+    auth = _higgsfield_auth()
+    if not auth:
         return None
+    headers = {"Authorization": auth, "Content-Type": "application/json", "Accept": "application/json"}
     try:
-        data_uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode()
-        url = f"{HIGGSFIELD_API_BASE}/{HIGGSFIELD_MODEL}"
-        payload = {
-            "prompt": prompt,
-            "image_url": data_uri,
-            "motion": preset_id,           # Higgsfield preset id
-            "aspect_ratio": "9:16",
-            "duration": 5,
-        }
-        headers = {
-            "Authorization": f"Key {key}",   # fal.ai auth scheme
-            "Content-Type": "application/json",
-        }
-        resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
-        resp.raise_for_status()
-        data = resp.json()
+        # 1. Get an upload URL, then PUT the bytes (endpoint wants a public URL)
+        up = requests.post(f"{HIGGSFIELD_API_BASE}/files/generate-upload-url",
+                           json={"content_type": "image/png"}, headers=headers, timeout=60)
+        up.raise_for_status()
+        up_data = up.json()
+        public_url = up_data.get("public_url") or up_data.get("publicUrl")
+        upload_url = up_data.get("upload_url") or up_data.get("uploadUrl")
+        if not public_url or not upload_url:
+            logger.warning("Higgsfield upload-url response missing fields: %s", str(up_data)[:160])
+            return None
+        put = requests.put(upload_url, data=image_bytes,
+                           headers={"Content-Type": "image/png"}, timeout=timeout)
+        put.raise_for_status()
 
-        # Extract a video URL from common response shapes
-        video_url = (
-            (data.get("video") or {}).get("url")
-            if isinstance(data.get("video"), dict) else data.get("video")
-        ) or (
-            (data.get("videos") or [{}])[0].get("url")
-            if isinstance(data.get("videos"), list) and data["videos"] else None
-        ) or data.get("url")
-
-        if not video_url:
-            logger.warning("Higgsfield returned no video url: %s", str(data)[:200])
+        # 2. Enqueue the DoP image-to-video job (motion via free-text prompt)
+        body = {"image_url": public_url, "prompt": prompt, "duration": 5, "aspect_ratio": "9:16"}
+        sub = requests.post(f"{HIGGSFIELD_API_BASE}{HIGGSFIELD_DOP_ENDPOINT}",
+                            json=body, headers=headers, timeout=60)
+        sub.raise_for_status()
+        job = sub.json()
+        request_id = job.get("request_id") or job.get("id")
+        status_url = job.get("status_url") or (
+            f"{HIGGSFIELD_API_BASE}/requests/{request_id}/status" if request_id else None)
+        if not status_url:
+            logger.warning("Higgsfield submit missing status_url/request_id: %s", str(job)[:160])
             return None
 
-        vid = requests.get(video_url, timeout=timeout)
-        vid.raise_for_status()
-        out_path.write_bytes(vid.content)
-        return out_path
+        # 3. Poll until a terminal state
+        waited = 0
+        while waited < timeout:
+            time.sleep(6)
+            waited += 6
+            st = requests.get(status_url, headers=headers, timeout=30)
+            st.raise_for_status()
+            data = st.json()
+            status = (data.get("status") or "").lower()
+            if status == "completed":
+                video = data.get("video") or {}
+                video_url = video.get("url") if isinstance(video, dict) else None
+                if not video_url:
+                    logger.warning("Higgsfield completed but no video.url: %s", str(data)[:160])
+                    return None
+                vid = requests.get(video_url, timeout=timeout)
+                vid.raise_for_status()
+                out_path.write_bytes(vid.content)
+                return out_path
+            if status in ("failed", "nsfw", "canceled", "cancelled", "error"):
+                logger.warning("Higgsfield job %s -> %s", request_id, status)
+                return None
+        logger.warning("Higgsfield job %s timed out after %ss", request_id, timeout)
+        return None
     except Exception as e:
         logger.warning("Higgsfield path failed (%s) — falling back to Veo.", str(e)[:160])
         return None
@@ -231,7 +268,7 @@ def generate_clip(client, image_path: Path, out_path: Path, *,
     if higgsfield_enabled():
         callback("status", {"phase": "generating_videos",
                             "message": f"Higgsfield — {preset['label']} motion..."})
-        if _higgsfield_clip(image_bytes, prompt, preset_id, out_path):
+        if _higgsfield_clip(image_bytes, prompt, out_path):
             engine = "higgsfield"
 
     # Fallback path

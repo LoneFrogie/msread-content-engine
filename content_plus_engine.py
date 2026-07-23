@@ -23,6 +23,7 @@ import zipfile
 import logging
 from pathlib import Path
 from typing import Callable
+from datetime import datetime
 
 from google import genai
 
@@ -45,9 +46,13 @@ _PRESET_MENU = "; ".join(f"{k} = {v['label']} ({v['best_for']})" for k, v in PRE
 # Strategy brief (the marketing brain)
 # ─────────────────────────────────────────────────────────────
 
-STRATEGY_PROMPT = """You are a seasoned digital-marketing and social-content strategist for {brand}, an elegant, size-inclusive Malaysian women's fashion label (modest workwear, casual & occasion wear; boutiques in shopping malls across Malaysia + online at msreadshop.com). Core customer: Malaysian women ~25–45, style-aware but value-conscious, many wear modestwear/hijab.
+STRATEGY_PROMPT = """You are a seasoned digital-marketing and social-content strategist for {brand}, an elegant, size-inclusive Malaysian women's fashion label (modest workwear, casual & occasion wear; boutiques in shopping malls across Malaysia + online at msreadshop.com). Core customer: Malaysian women ~25–45, style-aware but value-conscious, many wear modestwear/hijab. The current year is {current_year} — use correct, current-year references in any dated hashtag or copy.
 
-Your job: design ONE scroll-stopping short-video concept that rides the trend below and makes {brand} look more desirable than local competitors (Poplook, dUCk, Nafeesa, Zalia, Jovian) and fast fashion (Shein, Lovito, Uniqlo).
+Your job: design ONE scroll-stopping short-video concept that rides the trend below and makes {brand} look more desirable than the competition.
+
+THE COMPETITIVE WEDGE (use it — this is how we win):
+- Local rivals — Poplook, dUCk/FashionValet, Nafeesa, Zalia, Jovian, Bella Ammara, Lilit/Aere — and fast fashion (Shein, Lovito, Uniqlo, H&M) all over-index on FESTIVE/ASPIRATIONAL content and price-led hauls.
+- The white space they under-serve, and {brand} should own: **modest WORKWEAR for real Malaysian working women** — office-specific styling, plus-size + older-age representation, and genuine hijab / fit / fabric EDUCATION. Lean "edu-entertain" (teach, don't hard-sell). Where relevant, nod to {brand}'s mall-boutique omnichannel edge (in-store / live-selling) that pure-online rivals lack.
 
 TREND TO RIDE:
 - Name: {trend_name}
@@ -123,7 +128,7 @@ def _build_prompt(product: dict, trend: dict, custom_topic: str, creative_brief:
             "why": "A timely angle the audience is already engaging with.",
         }
     return STRATEGY_PROMPT.format(
-        brand=BRAND,
+        brand=BRAND, current_year=datetime.now().year,
         trend_name=t.get("name", ""), trend_scope=t.get("scope", ""),
         trend_moment=t.get("moment", ""), trend_format=t.get("format", ""),
         trend_platform=t.get("platform", ""), trend_why=t.get("why", ""),
