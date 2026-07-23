@@ -109,6 +109,117 @@
             letter-spacing: 0.5px;
             text-transform: none;
         }
+        /* CONTENT + premium tab */
+        .mode-tab-plus.active { border-bottom-color: var(--brand-coral); }
+        .mode-tab-plus .plus-glyph {
+            color: var(--brand-coral); font-weight: 700; font-size: 1.05em;
+        }
+        .mode-tab-plus::after {
+            content: "NEW"; display: inline-block; vertical-align: super;
+            font-size: 0.5rem; letter-spacing: 1px; color: #fff;
+            background: var(--brand-coral); padding: 1px 4px; margin-left: 4px;
+            border-radius: 2px;
+        }
+
+        /* ── CONTENT + : hero ── */
+        .cp-hero {
+            background: linear-gradient(135deg, #17171a 0%, #2a2320 60%, #3a2620 100%);
+            border: none; color: var(--brand-white); position: relative; overflow: hidden;
+        }
+        .cp-hero::after {
+            content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px;
+            background: radial-gradient(circle, rgba(249,118,91,0.35), transparent 70%); pointer-events: none;
+        }
+        .cp-hero-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap; }
+        .cp-kicker {
+            font-family: 'Jost', sans-serif; font-size: 0.72rem; letter-spacing: 3px;
+            text-transform: uppercase; color: var(--brand-coral); margin-bottom: 0.5rem;
+        }
+        .cp-hero-title {
+            font-family: 'Jost', sans-serif; font-weight: 500; font-size: 1.7rem;
+            line-height: 1.2; margin-bottom: 0.6rem; color: #fff;
+        }
+        .cp-hero .form-hint { color: rgba(255,255,255,0.72); }
+
+        /* engine badge */
+        .cp-engine-badge {
+            display: inline-flex; align-items: center; gap: 0.45rem; white-space: nowrap;
+            font-size: 0.72rem; letter-spacing: 1px; text-transform: uppercase;
+            padding: 0.4rem 0.7rem; border: 1px solid rgba(255,255,255,0.25);
+            color: rgba(255,255,255,0.85); border-radius: 2px; background: rgba(0,0,0,0.2);
+        }
+        .cp-engine-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: #888; }
+        .cp-engine-badge.on { border-color: var(--brand-coral); color: #fff; }
+        .cp-engine-badge.on .dot { background: var(--brand-coral); box-shadow: 0 0 0 3px rgba(249,118,91,0.25); }
+
+        /* ── Trend Radar grid ── */
+        .trend-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 0.8rem; margin-top: 1rem;
+        }
+        .trend-card {
+            text-align: left; background: var(--brand-offwhite); border: 1px solid var(--brand-grey);
+            padding: 1rem; cursor: pointer; transition: all 0.15s; display: flex; flex-direction: column; gap: 0.35rem;
+            font-family: 'Jost', sans-serif;
+        }
+        .trend-card:hover { border-color: var(--brand-black); transform: translateY(-2px); }
+        .trend-card.selected {
+            border-color: var(--brand-coral); background: #fff;
+            box-shadow: inset 0 0 0 1px var(--brand-coral), 0 6px 18px rgba(249,118,91,0.14);
+        }
+        .trend-top { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+        .trend-scope {
+            font-size: 0.6rem; letter-spacing: 1px; text-transform: uppercase; font-weight: 600;
+            padding: 2px 6px; border-radius: 2px;
+        }
+        .trend-scope.my { background: #eaf5ec; color: var(--brand-green); }
+        .trend-scope.global { background: #eef0f6; color: #4256b0; }
+        .trend-preset { font-size: 0.62rem; letter-spacing: 0.5px; text-transform: uppercase; color: var(--brand-coral); font-weight: 500; }
+        .trend-name { font-size: 1rem; font-weight: 500; color: var(--brand-black); letter-spacing: 0.3px; }
+        .trend-moment { font-size: 0.72rem; color: var(--brand-dark-grey); font-weight: 500; }
+        .trend-format { font-size: 0.78rem; color: var(--brand-black); }
+        .trend-why { font-size: 0.73rem; color: var(--brand-dark-grey); line-height: 1.45; font-style: italic; }
+        .cp-custom { margin-top: 1.2rem; }
+
+        /* clip count selector */
+        .cp-clips { display: flex; align-items: center; gap: 0.9rem; margin-top: 1.2rem; }
+        .clip-choices { display: flex; gap: 0.4rem; }
+        .clip-choice {
+            width: 38px; height: 38px; border: 1px solid var(--brand-grey); background: var(--brand-offwhite);
+            font-family: 'Jost', sans-serif; font-size: 0.95rem; cursor: pointer; transition: all 0.15s; color: var(--brand-black);
+        }
+        .clip-choice.active { background: var(--brand-black); color: #fff; border-color: var(--brand-black); }
+        .cp-generate { margin-top: 1.5rem; }
+
+        /* ── CONTENT + results ── */
+        .cp-result-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+        .cp-result-head .cp-engine-badge { border-color: var(--brand-coral); color: var(--brand-black); background: #fff; }
+        .cp-result-head .cp-engine-badge .dot { background: var(--brand-coral); }
+        .cp-hook {
+            background: linear-gradient(90deg, rgba(249,118,91,0.10), rgba(249,118,91,0.02));
+            border-left: 3px solid var(--brand-coral);
+        }
+        .cp-hook-label { font-size: 0.68rem; letter-spacing: 2px; text-transform: uppercase; color: var(--brand-coral); margin-bottom: 0.5rem; }
+        .cp-hook-text { font-family: 'Jost', sans-serif; font-size: 1.5rem; font-weight: 500; line-height: 1.3; color: var(--brand-black); }
+        .cp-shots { display: flex; flex-direction: column; gap: 1rem; }
+        .cp-shot { display: flex; gap: 1rem; align-items: stretch; }
+        .cp-shot-img { width: 120px; min-width: 120px; aspect-ratio: 9/16; object-fit: cover; cursor: pointer; border: 1px solid var(--brand-grey); background: var(--brand-offwhite); }
+        .cp-shot-body { flex: 1; display: flex; flex-direction: column; gap: 0.35rem; }
+        .cp-shot-head { display: flex; gap: 0.5rem; align-items: center; }
+        .cp-ost { font-size: 0.82rem; color: var(--brand-black); font-weight: 500; }
+        .cp-caption { white-space: pre-line; line-height: 1.7; color: var(--brand-black); font-size: 0.95rem; }
+        .hashtag-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.9rem; }
+        .hashtag { font-size: 0.75rem; color: #4256b0; background: #eef0f6; padding: 2px 8px; border-radius: 2px; }
+        .why-list { margin: 0.3rem 0 0; padding-left: 1.1rem; }
+        .why-list li { margin-bottom: 0.5rem; line-height: 1.5; color: var(--brand-black); font-size: 0.9rem; }
+        .cp-meta { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-top: 1.2rem; padding-top: 1.2rem; border-top: 1px solid var(--brand-grey); }
+        .cp-meta-item { font-size: 0.85rem; color: var(--brand-black); }
+        .cp-meta-label { display: block; font-size: 0.62rem; letter-spacing: 1px; text-transform: uppercase; color: var(--brand-dark-grey); margin-bottom: 0.25rem; }
+        @media (max-width: 640px) {
+            .cp-shot-img { width: 84px; min-width: 84px; }
+            .cp-hero-title { font-size: 1.35rem; }
+            .cp-hook-text { font-size: 1.2rem; }
+        }
 
         /* Card */
         .card {
@@ -830,6 +941,15 @@ const IDEAS_PHASES = [
     { key: "done", label: "Done" },
 ];
 
+const CONTENT_PLUS_PHASES = [
+    { key: "fetching_product", label: "Product" },
+    { key: "strategy", label: "Strategy" },
+    { key: "generating_images", label: "Shots" },
+    { key: "generating_videos", label: "Motion" },
+    { key: "packaging", label: "Package" },
+    { key: "done", label: "Done" },
+];
+
 // Default planning brief (the art director's brief — editable in the UI).
 const DEFAULT_IDEA_BRIEF = "Content ideas must be a mixture of J.Crew, Net-a-Porter, H&M, and local brands such as Hanya, Mis Claire, Machino, Hani Mokhta. Theme direction should be everyday, lifestyle-led pieces like \"Running Late Go-To Outfit\", \"Weekend Getaway Pieces\", \"1 Blouse, 3 Ways\" — soft-selling that builds the brand the way H&M and the local brands do.";
 const DEFAULT_IDEA_BRANDS = "J.Crew, Net-a-Porter, H&M, Hanya, Mis Claire, Machino, Hani Mokhta";
@@ -871,11 +991,32 @@ function App() {
     const [ideaBrands, setIdeaBrands] = useState(DEFAULT_IDEA_BRANDS);
     const [ideaMonth, setIdeaMonth] = useState(NEXT_MONTH_NAME);
     const [ideasContent, setIdeasContent] = useState(null);
+    // CONTENT + (Trend-to-Reel viral studio)
+    const [cpTrends, setCpTrends] = useState([]);
+    const [cpPresets, setCpPresets] = useState([]);
+    const [cpHiggsfield, setCpHiggsfield] = useState(false);
+    const [cpTrendId, setCpTrendId] = useState("");
+    const [cpCustomTopic, setCpCustomTopic] = useState("");
+    const [cpNumClips, setCpNumClips] = useState(3);
+    const [cpContent, setCpContent] = useState(null);
     const logRef = useRef(null);
 
     useEffect(() => {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [events]);
+
+    // Load the CONTENT + Trend Radar once
+    useEffect(() => {
+        fetch("/api/content-plus/trends")
+            .then(r => r.json())
+            .then(d => {
+                setCpTrends(d.trends || []);
+                setCpPresets(d.presets || []);
+                setCpHiggsfield(!!d.higgsfield_enabled);
+                if (!cpTrendId && (d.trends || []).length) setCpTrendId(d.trends[0].id);
+            })
+            .catch(() => {});
+    }, []);
 
     // ── Calendar Generation ──
     async function handleGenerateCalendar() {
@@ -1035,13 +1176,74 @@ function App() {
         } catch (err) { setError("Network error: " + err.message); }
     }
 
+    // ── CONTENT + Generation (Trend-to-Reel) ──
+    async function handleGenerateContentPlus() {
+        if (!productUrl.trim()) { setError("Paste a product link from msreadshop.com"); return; }
+        if (!cpTrendId && !cpCustomTopic.trim()) { setError("Pick a trend or type a custom topic"); return; }
+        _resetProgress("content_plus");
+        setCpContent(null);
+
+        try {
+            const res = await fetch("/api/generate-content-plus", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    product_url: productUrl,
+                    trend_id: cpTrendId,
+                    custom_topic: cpCustomTopic,
+                    creative_brief: brief,
+                    num_clips: cpNumClips,
+                }),
+            });
+            if (!res.ok) { setError((await res.json()).detail || "Failed"); return; }
+
+            const { session_id } = await res.json();
+            setSessionId(session_id);
+            setActiveMode("content_plus");
+            setView("progress");
+
+            const es = new EventSource(`/api/progress/${session_id}`);
+            es.onmessage = (e) => {
+                const ev = JSON.parse(e.data);
+                if (ev.type === "stream_end") {
+                    es.close();
+                    if (ev.status === "done") {
+                        setEndTime(Date.now());
+                        fetch(`/api/content-plus/${session_id}`)
+                            .then(r => r.json())
+                            .then(data => { setCpContent(data); setView("results"); })
+                            .catch(() => setView("results"));
+                    } else {
+                        setError("Generation failed. Check the log.");
+                    }
+                    return;
+                }
+                setEvents((prev) => [...prev, ev]);
+                if (ev.type === "status" && ev.phase) {
+                    setCurrentPhase(ev.phase);
+                    if (ev.product) setProductPreview(ev.product);
+                    if (ev.brief) setCpContent((prev) => ({ ...(prev || {}), brief: ev.brief }));
+                }
+                if (ev.type === "image_start") {
+                    setImageProgress({ current: ev.index, total: ev.total });
+                    setImages((prev) => ({ ...prev, [ev.day]: { status: "generating", theme: ev.theme } }));
+                }
+                if (ev.type === "image_done" && ev.success && ev.filename) {
+                    setImages((prev) => ({ ...prev, [ev.day]: { status: "done", theme: ev.theme, filename: ev.filename } }));
+                }
+                if (ev.type === "error") setError(ev.message);
+            };
+            es.onerror = () => es.close();
+        } catch (err) { setError("Network error: " + err.message); }
+    }
+
     function _resetProgress(m) {
         setError(null);
         setEvents([]);
         setImages({});
         setVideos([]);
-        setCurrentPhase(m === "ideas" ? "generating_ideas" : m === "pdp" ? "fetching_product" : m === "sku" ? "fetching_product" : "adapting");
-        setImageProgress({ current: 0, total: m === "sku" ? 4 : 30 });
+        setCurrentPhase(m === "ideas" ? "generating_ideas" : (m === "pdp" || m === "sku" || m === "content_plus") ? "fetching_product" : "adapting");
+        setImageProgress({ current: 0, total: m === "content_plus" ? cpNumClips : m === "sku" ? 4 : 30 });
         setStartTime(Date.now());
         setEndTime(null);
         setProductPreview(null);
@@ -1190,12 +1392,24 @@ function App() {
         setCopyState({});
     }
 
-    const phases = activeMode === "ideas" ? IDEAS_PHASES : activeMode === "pdp" ? PDP_PHASES : activeMode === "sku" ? SKU_PHASES : CALENDAR_PHASES;
+    const phases = activeMode === "ideas" ? IDEAS_PHASES : activeMode === "pdp" ? PDP_PHASES : activeMode === "content_plus" ? CONTENT_PLUS_PHASES : activeMode === "sku" ? SKU_PHASES : CALENDAR_PHASES;
     const phaseOrder = phases.map(p => p.key);
     const currentPhaseIdx = phaseOrder.indexOf(currentPhase);
 
     const overallProgress = (() => {
         if (currentPhase === "done") return 100;
+        if (activeMode === "content_plus") {
+            if (currentPhase === "packaging") return 95;
+            if (currentPhase === "videos_done") return 90;
+            if (currentPhase === "generating_videos")
+                return 60 + (imageProgress.current / Math.max(imageProgress.total, 1)) * 30;
+            if (currentPhase === "generating_images")
+                return 40 + (imageProgress.current / Math.max(imageProgress.total, 1)) * 20;
+            if (currentPhase === "strategy_ready" || currentPhase === "strategy_done") return 38;
+            if (currentPhase === "strategy") return 22;
+            if (currentPhase === "product_ready" || currentPhase === "fetching_product") return 8;
+            return 5;
+        }
         if (activeMode === "ideas") {
             if (currentPhase === "building_excel") return 80;
             if (currentPhase === "ideas_generated") return 70;
@@ -1255,6 +1469,10 @@ function App() {
                         <button className={`mode-tab ${mode === "ideas" ? "active" : ""}`} onClick={() => setMode("ideas")}>
                             30-Day Ideas
                             <span className="tab-desc">A month of content themes &amp; soft-sell hooks</span>
+                        </button>
+                        <button className={`mode-tab mode-tab-plus ${mode === "content_plus" ? "active" : ""}`} onClick={() => setMode("content_plus")}>
+                            CONTENT&nbsp;<span className="plus-glyph">+</span>
+                            <span className="tab-desc">Trend-jack viral Reels from a live trend radar</span>
                         </button>
                     </div>
 
@@ -1491,6 +1709,84 @@ function App() {
                             </div>
                         </>
                     )}
+
+                    {/* ── CONTENT + MODE (Trend-to-Reel) ── */}
+                    {mode === "content_plus" && (
+                        <>
+                            <div className="cp-hero card">
+                                <div className="cp-hero-row">
+                                    <div>
+                                        <div className="cp-kicker">Trend-to-Reel Studio</div>
+                                        <h2 className="cp-hero-title">Turn today's trends into scroll-stopping Reels</h2>
+                                        <p className="form-hint" style={{ maxWidth: "48ch" }}>
+                                            Pick a live trend, drop in a product, and CONTENT&nbsp;+ writes the strategy and generates on-trend visuals + vertical motion clips &mdash; engineered to out-shine local &amp; global competitors.
+                                        </p>
+                                    </div>
+                                    <div className={`cp-engine-badge ${cpHiggsfield ? "on" : ""}`}>
+                                        <span className="dot"></span>
+                                        {cpHiggsfield ? "Higgsfield motion" : "Veo motion engine"}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="card">
+                                <h2>1 &middot; Trend Radar</h2>
+                                <p className="form-hint">Malaysia-local &amp; worldwide formats trending right now. Pick one to ride.</p>
+                                <div className="trend-grid">
+                                    {cpTrends.map(t => (
+                                        <button key={t.id}
+                                            className={`trend-card ${cpTrendId === t.id ? "selected" : ""}`}
+                                            onClick={() => { setCpTrendId(t.id); setCpCustomTopic(""); }}>
+                                            <div className="trend-top">
+                                                <span className={`trend-scope ${t.scope === "MY" ? "my" : "global"}`}>
+                                                    {t.scope === "MY" ? "Malaysia" : "Global"}
+                                                </span>
+                                                <span className="trend-preset">
+                                                    {(cpPresets.find(p => p.id === t.preset) || {}).label || t.preset}
+                                                </span>
+                                            </div>
+                                            <div className="trend-name">{t.name}</div>
+                                            <div className="trend-moment">{t.moment}</div>
+                                            <div className="trend-format">{t.format}</div>
+                                            <div className="trend-why">{t.why}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="cp-custom">
+                                    <label className="form-label">&hellip;or trend-jack something else</label>
+                                    <input type="text" className="url-input"
+                                        placeholder="e.g. a viral sound, a meme format, a news moment"
+                                        value={cpCustomTopic}
+                                        onChange={(e) => { setCpCustomTopic(e.target.value); if (e.target.value) setCpTrendId(""); }} />
+                                </div>
+                            </div>
+
+                            <div className="card">
+                                <h2>2 &middot; Product &amp; Direction</h2>
+                                <label className="form-label">Product Link</label>
+                                <input type="url" className="url-input"
+                                    placeholder="https://www.msreadshop.com/products/your-product-handle"
+                                    value={productUrl} onChange={(e) => setProductUrl(e.target.value)} />
+                                <label className="form-label" style={{ marginTop: "1rem" }}>Creative Direction (optional)</label>
+                                <textarea className="brief-input" style={{ minHeight: "80px" }}
+                                    placeholder="Any angle, mood, or campaign tie-in the concept should follow&hellip;"
+                                    value={brief} onChange={(e) => setBrief(e.target.value)} />
+                                <div className="cp-clips">
+                                    <label className="form-label" style={{ margin: 0 }}>Motion clips</label>
+                                    <div className="clip-choices">
+                                        {[1,2,3,4].map(n => (
+                                            <button key={n} className={`clip-choice ${cpNumClips === n ? "active" : ""}`}
+                                                onClick={() => setCpNumClips(n)}>{n}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <button className="btn-primary cp-generate" onClick={handleGenerateContentPlus}
+                                    disabled={!productUrl.trim() || (!cpTrendId && !cpCustomTopic.trim())}>
+                                    Generate Viral Content
+                                </button>
+                            </div>
+                        </>
+                    )}
                 </>
             )}
 
@@ -1498,7 +1794,7 @@ function App() {
             {view === "progress" && (
                 <>
                     <div className="card">
-                        <h2>{activeMode === "ideas" ? "Planning Your Theme Calendar" : activeMode === "pdp" ? "Optimizing Product Description" : activeMode === "sku" ? "Generating Product Content" : "Generating Your Content Pack"}</h2>
+                        <h2>{activeMode === "ideas" ? "Planning Your Theme Calendar" : activeMode === "pdp" ? "Optimizing Product Description" : activeMode === "content_plus" ? "Building Your Viral Content" : activeMode === "sku" ? "Generating Product Content" : "Generating Your Content Pack"}</h2>
 
                         {/* Product preview (SKU mode) */}
                         {productPreview && (
@@ -1769,7 +2065,126 @@ function App() {
                 </>
             )}
 
-            {view === "results" && activeMode !== "pdp" && activeMode !== "ideas" && (
+            {view === "results" && activeMode === "content_plus" && cpContent && (() => {
+                const b = cpContent.brief || {};
+                const imgs = cpContent.images || [];
+                const vids = cpContent.videos || [];
+                const tags = (b.hashtags || []).map(h => "#" + String(h).replace(/^#/, ""));
+                const presetLabel = (id) => (cpPresets.find(p => p.id === id) || {}).label || id;
+                return (
+                <>
+                    <div className="card cp-result-head">
+                        <div className="cp-result-top">
+                            <div>
+                                <div className="cp-kicker">{(cpContent.trend || {}).name || "Custom trend"}</div>
+                                <div className="product-title" style={{ fontSize: "1.5rem" }}>{b.concept_name || "Viral Concept"}</div>
+                                <p className="style-desc" style={{ marginTop: "0.4rem" }}>{b.big_idea}</p>
+                            </div>
+                            <div className="cp-engine-badge on"><span className="dot"></span>{cpContent.engine === "higgsfield" ? "Higgsfield" : "Veo 3.1"}</div>
+                        </div>
+                        <div className="pdp-actions" style={{ marginTop: "1.2rem" }}>
+                            <button className={`btn-copy ${copyState.cp_caption ? "copied" : ""}`}
+                                onClick={() => copyToClipboard("cp_caption", (b.caption || "") + "\n\n" + tags.join(" "))}>
+                                {copyState.cp_caption ? "Copied!" : "Copy Caption + Tags"}
+                            </button>
+                            <button className="btn-download" onClick={() => window.location.href = `/api/download/${sessionId}`}>
+                                Download Pack (.zip)
+                            </button>
+                        </div>
+                    </div>
+
+                    {b.hook_line && (
+                        <div className="card cp-hook">
+                            <div className="cp-hook-label">The Hook &mdash; first 2 seconds</div>
+                            <div className="cp-hook-text">&ldquo;{b.hook_line}&rdquo;</div>
+                        </div>
+                    )}
+
+                    {vids.length > 0 && (
+                        <div className="card">
+                            <h2>Viral Motion Clips</h2>
+                            <p className="form-hint">9:16 vertical, ready for Reels / TikTok / Stories.</p>
+                            <div className="video-grid">
+                                {vids.map((v, i) => (
+                                    <div key={i} className="video-slot">
+                                        <video src={`/api/video/${sessionId}/${v.filename}`} controls preload="metadata" playsInline />
+                                        <div className="video-info">
+                                            <span className="video-scene">{presetLabel(v.preset)}</span>
+                                            <span className="video-size">{v.size_mb} MB</span>
+                                        </div>
+                                        <a href={`/api/video/${sessionId}/${v.filename}`} download={v.filename} className="btn-copy"
+                                            style={{ display: "block", textAlign: "center", marginTop: "0.5rem" }}>Download</a>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {(b.shotlist || []).length > 0 && (
+                        <div className="card">
+                            <h2>Storyboard</h2>
+                            <div className="cp-shots">
+                                {b.shotlist.map((s, i) => {
+                                    const img = imgs[i];
+                                    const src = img ? `/api/images/${sessionId}/${img.filename}` : null;
+                                    return (
+                                        <div key={i} className="cp-shot">
+                                            {src && <img className="cp-shot-img" src={src} alt={s.scene}
+                                                onClick={() => setLightbox(src)} />}
+                                            <div className="cp-shot-body">
+                                                <div className="cp-shot-head">
+                                                    <span className="day-badge">Shot {i + 1}</span>
+                                                    <span className="trend-preset">{presetLabel(s.preset)}</span>
+                                                </div>
+                                                <div className="style-name">{s.scene}</div>
+                                                {s.on_screen_text && <div className="cp-ost">On-screen: &ldquo;{s.on_screen_text}&rdquo;</div>}
+                                                <div className="style-desc">{s.image_prompt}</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="card">
+                        <h2>Caption &amp; Hashtags</h2>
+                        <p className="cp-caption">{b.caption}</p>
+                        {tags.length > 0 && (
+                            <div className="hashtag-row">
+                                {tags.map((t, i) => <span key={i} className="hashtag">{t}</span>)}
+                            </div>
+                        )}
+                        {b.cta && <p className="style-desc" style={{ marginTop: "0.9rem" }}><strong>CTA:</strong> {b.cta}</p>}
+                    </div>
+
+                    <div className="card cp-strategy">
+                        <h2>Why This Wins</h2>
+                        <ul className="why-list">
+                            {(b.why_it_wins || []).map((w, i) => <li key={i}>{w}</li>)}
+                        </ul>
+                        <div className="cp-meta">
+                            {b.best_post_time_myt && <div className="cp-meta-item"><span className="cp-meta-label">Best time (MYT)</span>{b.best_post_time_myt}</div>}
+                            {b.audio_suggestion && <div className="cp-meta-item"><span className="cp-meta-label">Audio</span>{b.audio_suggestion}</div>}
+                            {b.kpi_to_watch && <div className="cp-meta-item"><span className="cp-meta-label">KPI to watch</span>{b.kpi_to_watch}</div>}
+                        </div>
+                    </div>
+
+                    {duration && (
+                        <div className="card" style={{ textAlign: "center" }}>
+                            <p style={{ color: "var(--brand-dark-grey)", fontSize: "0.85rem" }}>
+                                Generated in {Math.floor(duration/60)}:{String(duration%60).padStart(2,'0')}
+                            </p>
+                        </div>
+                    )}
+                    <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                        <button className="btn-secondary" onClick={resetToInput}>Create Another</button>
+                    </div>
+                </>
+                );
+            })()}
+
+            {view === "results" && activeMode !== "pdp" && activeMode !== "ideas" && activeMode !== "content_plus" && (
                 <>
                     <div className="card" style={{ textAlign: "center" }}>
                         <h2 style={{ fontSize: "1.4rem", marginBottom: "0.5rem" }}>

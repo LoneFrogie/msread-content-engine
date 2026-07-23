@@ -34,6 +34,9 @@ from engine import run_pipeline
 from sku_engine import run_sku_pipeline
 from pdp_engine import run_pdp_pipeline
 from ideas_engine import run_ideas_pipeline
+from content_plus_engine import run_content_plus_pipeline
+from trend_catalog import TREND_CATALOG
+from higgsfield_adapter import PRESETS, higgsfield_enabled
 
 app = FastAPI(title="MS. READ Content Engine")
 
@@ -95,6 +98,14 @@ class GenerateIdeasRequest(BaseModel):
     brands: str = ""
     month: str = ""
     num_days: int = 30
+
+
+class GenerateContentPlusRequest(BaseModel):
+    product_url: str
+    trend_id: str = ""
+    custom_topic: str = ""
+    creative_brief: str = ""
+    num_clips: int = 3
 
 
 @app.get("/")
@@ -280,6 +291,86 @@ async def start_ideas_generation(req: GenerateIdeasRequest):
     thread.start()
 
     return {"session_id": session_id, "mode": "ideas"}
+
+
+@app.get("/api/content-plus/trends")
+async def content_plus_trends():
+    """Trend Radar catalog + available motion presets for the CONTENT + tab."""
+    return {
+        "trends": TREND_CATALOG,
+        "presets": [{"id": k, "label": v["label"], "best_for": v["best_for"]}
+                    for k, v in PRESETS.items()],
+        "higgsfield_enabled": higgsfield_enabled(),
+    }
+
+
+@app.post("/api/generate-content-plus")
+async def start_content_plus_generation(req: GenerateContentPlusRequest):
+    if not GOOGLE_AI_API_KEY:
+        raise HTTPException(status_code=500, detail="GOOGLE_AI_API_KEY not set.")
+    if not req.product_url.strip():
+        raise HTTPException(status_code=400, detail="Product URL cannot be empty")
+    if not req.trend_id.strip() and not req.custom_topic.strip():
+        raise HTTPException(status_code=400, detail="Pick a trend or enter a custom topic")
+
+    cleanup_old_sessions()
+
+    session_id = uuid4().hex[:12]
+    output_dir = OUTPUT_BASE / session_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    session = Session(
+        session_id=session_id,
+        creative_brief=req.creative_brief.strip(),
+        mode="content_plus",
+        product_url=req.product_url.strip(),
+        status="running",
+        output_dir=output_dir,
+    )
+    sessions[session_id] = session
+
+    def callback(event_type, data):
+        event = {"type": event_type, "timestamp": datetime.now().isoformat(), **data}
+        session.events.append(event)
+        if event_type == "error":
+            session.status = "error"
+            session.error = data.get("message", "Unknown error")
+        elif data.get("phase") == "done":
+            session.status = "done"
+
+    thread = Thread(
+        target=_run_content_plus_thread,
+        args=(session, callback, req.trend_id.strip(), req.custom_topic.strip(),
+              max(1, min(4, req.num_clips or 3))),
+        daemon=True,
+    )
+    thread.start()
+
+    return {"session_id": session_id, "mode": "content_plus"}
+
+
+def _run_content_plus_thread(session: Session, callback, trend_id: str,
+                             custom_topic: str, num_clips: int):
+    try:
+        run_content_plus_pipeline(
+            api_key=GOOGLE_AI_API_KEY,
+            product_url=session.product_url,
+            trend_id=trend_id,
+            custom_topic=custom_topic,
+            creative_brief=session.creative_brief,
+            num_clips=num_clips,
+            output_dir=session.output_dir,
+            callback=callback,
+        )
+    except Exception as e:
+        if session.status != "error":
+            session.status = "error"
+            session.error = str(e)
+            session.events.append({
+                "type": "error",
+                "message": str(e),
+                "timestamp": datetime.now().isoformat(),
+            })
 
 
 def _run_ideas_thread(session: Session, callback, brands: str, month: str, num_days: int):
@@ -473,6 +564,21 @@ async def get_ideas_content(session_id: str):
 
     import json as _json
     with open(ideas_path) as f:
+        return _json.load(f)
+
+
+@app.get("/api/content-plus/{session_id}")
+async def get_content_plus(session_id: str):
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session = sessions[session_id]
+    cp_path = session.output_dir / "content_plus.json"
+    if not cp_path.exists():
+        raise HTTPException(status_code=404, detail="Content not ready yet")
+
+    import json as _json
+    with open(cp_path) as f:
         return _json.load(f)
 
 
