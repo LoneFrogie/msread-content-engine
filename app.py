@@ -37,6 +37,7 @@ from ideas_engine import run_ideas_pipeline
 from content_plus_engine import run_content_plus_pipeline
 from trend_catalog import TREND_CATALOG
 from higgsfield_adapter import PRESETS, higgsfield_enabled
+from content_calendar import build_plan
 
 app = FastAPI(title="MS. READ Content Engine")
 
@@ -302,6 +303,12 @@ async def content_plus_trends():
                     for k, v in PRESETS.items()],
         "higgsfield_enabled": higgsfield_enabled(),
     }
+
+
+@app.get("/api/content-plus/calendar")
+async def content_plus_calendar(weeks: int = 12):
+    """Rolling week-by-week posting plan mapped to the MY marketing calendar."""
+    return build_plan(weeks)
 
 
 @app.post("/api/generate-content-plus")

@@ -221,6 +221,62 @@
             .cp-hook-text { font-size: 1.2rem; }
         }
 
+        /* ── CONTENT + : sub-tabs (Studio | Calendar) ── */
+        .cp-subtabs { display: flex; gap: 0.5rem; margin: 0 0 1.5rem; }
+        .cp-subtab {
+            padding: 0.5rem 1.1rem; font-family: 'Jost', sans-serif; font-size: 0.8rem;
+            letter-spacing: 1px; text-transform: uppercase; cursor: pointer; color: var(--brand-dark-grey);
+            background: var(--brand-offwhite); border: 1px solid var(--brand-grey); transition: all 0.15s;
+        }
+        .cp-subtab.active { background: var(--brand-black); color: #fff; border-color: var(--brand-black); }
+
+        /* seed-ahead alerts */
+        .cp-alerts { display: flex; flex-direction: column; gap: 0.6rem; }
+        .cp-alert {
+            display: flex; align-items: center; gap: 0.6rem; padding: 0.7rem 0.9rem;
+            font-size: 0.85rem; border-left: 3px solid var(--brand-dark-grey); background: var(--brand-offwhite);
+        }
+        .cp-alert.seed_now { border-left-color: var(--brand-coral); background: linear-gradient(90deg, rgba(249,118,91,0.12), rgba(249,118,91,0.02)); }
+        .cp-alert.prep { border-left-color: #4256b0; background: #eef0f6; }
+        .cp-alert-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-coral); flex: none; }
+        .cp-alert.prep .cp-alert-dot { background: #4256b0; }
+        .cp-alert span:nth-child(2) { flex: 1; color: var(--brand-black); }
+        .cp-alert-cta {
+            border: none; background: var(--brand-black); color: #fff; font-family: 'Jost', sans-serif;
+            font-size: 0.72rem; letter-spacing: 0.5px; text-transform: uppercase; padding: 0.35rem 0.7rem; cursor: pointer; white-space: nowrap;
+        }
+
+        /* calendar list */
+        .cal-list { display: flex; flex-direction: column; margin-top: 1.2rem; }
+        .cal-row {
+            display: flex; gap: 1rem; align-items: flex-start; padding: 0.9rem 0;
+            border-top: 1px solid var(--brand-grey);
+        }
+        .cal-row.moment { background: linear-gradient(90deg, rgba(249,118,91,0.06), transparent 60%); }
+        .cal-row.launch { box-shadow: inset 3px 0 0 var(--brand-coral); }
+        .cal-week { width: 108px; min-width: 108px; display: flex; flex-direction: column; gap: 0.3rem; }
+        .cal-date { font-family: 'Jost', sans-serif; font-weight: 500; font-size: 0.85rem; color: var(--brand-black); }
+        .cal-launch { font-size: 0.55rem; letter-spacing: 1px; color: #fff; background: var(--brand-coral); padding: 1px 5px; border-radius: 2px; width: fit-content; }
+        .cal-body { flex: 1; min-width: 0; }
+        .cal-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+        .cal-moment { font-weight: 500; color: var(--brand-black); font-size: 0.92rem; }
+        .cal-evergreen { font-size: 0.68rem; letter-spacing: 1px; text-transform: uppercase; color: var(--brand-dark-grey); }
+        .cal-trend { font-size: 0.72rem; color: var(--brand-coral); background: rgba(249,118,91,0.1); padding: 2px 8px; border-radius: 2px; }
+        .cal-note { font-size: 0.76rem; color: var(--brand-dark-grey); line-height: 1.4; }
+        .cal-when { width: 130px; min-width: 130px; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; }
+        .cal-day { font-weight: 500; font-size: 0.82rem; color: var(--brand-black); }
+        .cal-time { font-size: 0.72rem; color: var(--brand-dark-grey); }
+        .cal-use {
+            margin-top: 0.4rem; border: 1px solid var(--brand-grey); background: #fff; cursor: pointer;
+            font-family: 'Jost', sans-serif; font-size: 0.68rem; letter-spacing: 0.5px; text-transform: uppercase;
+            color: var(--brand-black); padding: 0.3rem 0.6rem; transition: all 0.15s;
+        }
+        .cal-use:hover { background: var(--brand-black); color: #fff; border-color: var(--brand-black); }
+        @media (max-width: 640px) {
+            .cal-row { flex-wrap: wrap; }
+            .cal-when { width: 100%; text-align: left; align-items: flex-start; flex-direction: row; gap: 0.6rem; flex-wrap: wrap; }
+        }
+
         /* Card */
         .card {
             background: var(--brand-white);
@@ -999,6 +1055,8 @@ function App() {
     const [cpCustomTopic, setCpCustomTopic] = useState("");
     const [cpNumClips, setCpNumClips] = useState(3);
     const [cpContent, setCpContent] = useState(null);
+    const [cpView, setCpView] = useState("studio"); // "studio" | "calendar"
+    const [cpCalendar, setCpCalendar] = useState(null);
     const logRef = useRef(null);
 
     useEffect(() => {
@@ -1016,7 +1074,35 @@ function App() {
                 if (!cpTrendId && (d.trends || []).length) setCpTrendId(d.trends[0].id);
             })
             .catch(() => {});
+        fetch("/api/content-plus/calendar?weeks=16")
+            .then(r => r.json())
+            .then(d => setCpCalendar(d))
+            .catch(() => {});
     }, []);
+
+    // Send a calendar slot's trend into the Studio, ready to generate.
+    function useTrendInStudio(trendId) {
+        setCpTrendId(trendId);
+        setCpCustomTopic("");
+        setCpView("studio");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // Export the posting plan as a CSV for any scheduler.
+    function downloadCalendarCsv() {
+        if (!cpCalendar || !cpCalendar.plan) return;
+        const rows = [["Week of", "Type", "Moment", "Trend / Pillar", "Post day", "Post time (MYT)", "Note"]];
+        cpCalendar.plan.forEach(w => rows.push([
+            w.week_label, w.type, w.moment || "", w.trend_name, w.post_day, w.post_time, w.note,
+        ]));
+        const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+        const blob = new Blob([csv], { type: "text/csv" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "msread_content_calendar.csv";
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
 
     // ── Calendar Generation ──
     async function handleGenerateCalendar() {
@@ -1729,6 +1815,15 @@ function App() {
                                 </div>
                             </div>
 
+                            <div className="cp-subtabs">
+                                <button className={`cp-subtab ${cpView === "studio" ? "active" : ""}`}
+                                    onClick={() => setCpView("studio")}>Studio</button>
+                                <button className={`cp-subtab ${cpView === "calendar" ? "active" : ""}`}
+                                    onClick={() => setCpView("calendar")}>Content Calendar</button>
+                            </div>
+
+                            {cpView === "studio" && (
+                            <>
                             <div className="card">
                                 <h2>1 &middot; Trend Radar</h2>
                                 <p className="form-hint">Malaysia-local &amp; worldwide formats trending right now. Pick one to ride.</p>
@@ -1785,6 +1880,63 @@ function App() {
                                     Generate Viral Content
                                 </button>
                             </div>
+                            </>
+                            )}
+
+                            {cpView === "calendar" && cpCalendar && (
+                                <>
+                                    {(cpCalendar.alerts || []).length > 0 && (
+                                        <div className="card cp-alerts">
+                                            {cpCalendar.alerts.map((a, i) => (
+                                                <div key={i} className={`cp-alert ${a.level}`}>
+                                                    <span className="cp-alert-dot"></span>
+                                                    <span>{a.message}</span>
+                                                    <button className="cp-alert-cta" onClick={() => useTrendInStudio(a.trend_id)}>
+                                                        Make it &rarr;
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="card">
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                                            <div>
+                                                <h2 style={{ marginBottom: "0.3rem" }}>Content Calendar</h2>
+                                                <p className="form-hint" style={{ margin: 0 }}>
+                                                    A {cpCalendar.weeks}-week posting plan mapped to the Malaysian calendar &mdash; what to post, when, and why. Times in MYT.
+                                                </p>
+                                            </div>
+                                            <button className="btn-copy" onClick={downloadCalendarCsv}>Download CSV</button>
+                                        </div>
+
+                                        <div className="cal-list">
+                                            {(cpCalendar.plan || []).map((w, i) => (
+                                                <div key={i} className={`cal-row ${w.type === "moment" ? "moment" : ""} ${w.is_launch_week ? "launch" : ""}`}>
+                                                    <div className="cal-week">
+                                                        <span className="cal-date">{w.week_label}</span>
+                                                        {w.is_launch_week && <span className="cal-launch">LAUNCH WEEK</span>}
+                                                    </div>
+                                                    <div className="cal-body">
+                                                        <div className="cal-head">
+                                                            {w.moment
+                                                                ? <span className="cal-moment">{w.moment}</span>
+                                                                : <span className="cal-evergreen">Always-on</span>}
+                                                            <span className="cal-trend">{w.trend_name}</span>
+                                                        </div>
+                                                        <div className="cal-note">{w.note}</div>
+                                                    </div>
+                                                    <div className="cal-when">
+                                                        <span className="cal-day">{w.post_day}</span>
+                                                        <span className="cal-time">{w.post_time}</span>
+                                                        <button className="cal-use" onClick={() => useTrendInStudio(w.trend_id)}>Use in Studio &rarr;</button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </>
                     )}
                 </>
