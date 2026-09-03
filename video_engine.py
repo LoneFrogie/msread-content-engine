@@ -16,6 +16,16 @@ from PIL import Image as PILImage
 
 logger = logging.getLogger(__name__)
 
+QUOTA_NOTICE = (
+    " — Veo quota exhausted on the Google AI key. Videos resume when the quota "
+    "resets (daily, ~3pm MYT) or after the limit is raised in Google AI Studio."
+)
+
+
+def _is_quota_error(e) -> bool:
+    s = str(e)
+    return "429" in s or "RESOURCE_EXHAUSTED" in s
+
 # Veo model for image-to-video. Google retired veo-2.0-generate-001 from the
 # Gemini API (only Veo 3.1 preview models remain: standard / fast / lite).
 # "fast" balances speed + cost for short social clips. If this key loses access
@@ -109,9 +119,17 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
     })
 
     generated_videos = []
+    quota_exhausted = False
 
     for i, img_path in enumerate(selected):
         scene_name = img_path.stem.replace("day_", "").replace("sku_", "")
+        if quota_exhausted:
+            callback("video_done", {
+                "index": i, "total": total, "scene": scene_name,
+                "filename": None, "success": False,
+                "message": f"{scene_name} — skipped (Veo quota exhausted)"
+            })
+            continue
         scene_type = _classify_scene(scene_name)
         scene_prompt = VIDEO_SCENE_PROMPTS.get(scene_type, VIDEO_SCENE_PROMPTS["product_showcase"])
 
@@ -148,21 +166,36 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
             img.save(buf, format="PNG")
             image_bytes = buf.getvalue()
 
-            # Submit video generation job (image-to-video)
-            operation = client.models.generate_videos(
-                model=VEO_MODEL,
-                source=types.GenerateVideosSource(
-                    prompt=prompt,
-                    image=types.Image(
-                        image_bytes=image_bytes,
-                        mime_type="image/png",
-                    ),
-                ),
-                config=types.GenerateVideosConfig(
-                    number_of_videos=1,
-                    aspect_ratio="9:16",  # Vertical for Reels/TikTok
-                ),
-            )
+            # Submit video generation job (image-to-video). A 429 can be a
+            # transient per-minute limit, so back off and retry before giving up.
+            operation = None
+            for attempt in range(3):
+                try:
+                    operation = client.models.generate_videos(
+                        model=VEO_MODEL,
+                        source=types.GenerateVideosSource(
+                            prompt=prompt,
+                            image=types.Image(
+                                image_bytes=image_bytes,
+                                mime_type="image/png",
+                            ),
+                        ),
+                        config=types.GenerateVideosConfig(
+                            number_of_videos=1,
+                            aspect_ratio="9:16",  # Vertical for Reels/TikTok
+                        ),
+                    )
+                    break
+                except Exception as e:
+                    if _is_quota_error(e) and attempt < 2:
+                        wait = (15, 45)[attempt]
+                        callback("status", {
+                            "phase": "generating_videos",
+                            "message": f"Veo rate-limited — retrying in {wait}s...",
+                        })
+                        time.sleep(wait)
+                        continue
+                    raise
 
             # Poll for completion (videos take 30-120 sec)
             poll_count = 0
@@ -229,6 +262,14 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
 
         except Exception as e:
             logger.warning(f"Video generation failed for {scene_name}: {e}")
+            if _is_quota_error(e):
+                quota_exhausted = True
+                callback("video_done", {
+                    "index": i, "total": total, "scene": scene_name,
+                    "filename": None, "success": False,
+                    "message": f"{scene_name} — Veo quota exhausted (skipping the rest)"
+                })
+                continue
             callback("video_done", {
                 "index": i, "total": total, "scene": scene_name,
                 "filename": None, "success": False,
@@ -239,10 +280,14 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
         if i < total - 1:
             time.sleep(5)
 
+    done_msg = f"{len(generated_videos)}/{total} videos generated"
+    if quota_exhausted:
+        done_msg += QUOTA_NOTICE
     callback("status", {
         "phase": "videos_done",
-        "message": f"{len(generated_videos)}/{total} videos generated",
+        "message": done_msg,
         "total_videos": len(generated_videos),
+        "quota_exhausted": quota_exhausted,
     })
 
     return generated_videos

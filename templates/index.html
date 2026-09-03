@@ -1042,6 +1042,7 @@ function App() {
     const [pdpContent, setPdpContent] = useState(null);
     const [copyState, setCopyState] = useState({});
     const [videos, setVideos] = useState([]);
+    const [videoNotice, setVideoNotice] = useState(null); // e.g. Veo quota exhausted
     // Idea / Theme Planner state
     const [ideaBrief, setIdeaBrief] = useState(DEFAULT_IDEA_BRIEF);
     const [ideaBrands, setIdeaBrands] = useState(DEFAULT_IDEA_BRANDS);
@@ -1309,6 +1310,7 @@ function App() {
                     setCurrentPhase(ev.phase);
                     if (ev.product) setProductPreview(ev.product);
                     if (ev.brief) setCpContent((prev) => ({ ...(prev || {}), brief: ev.brief }));
+                    if (ev.quota_exhausted) setVideoNotice(ev.message);
                 }
                 if (ev.type === "image_start") {
                     setImageProgress({ current: ev.index, total: ev.total });
@@ -1328,6 +1330,7 @@ function App() {
         setEvents([]);
         setImages({});
         setVideos([]);
+        setVideoNotice(null);
         setCurrentPhase(m === "ideas" ? "generating_ideas" : (m === "pdp" || m === "sku" || m === "content_plus") ? "fetching_product" : "adapting");
         setImageProgress({ current: 0, total: m === "content_plus" ? cpNumClips : m === "sku" ? 4 : 30 });
         setStartTime(Date.now());
@@ -1358,6 +1361,7 @@ function App() {
                 setCurrentPhase(ev.phase);
                 // Capture product preview from the fetch phase
                 if (ev.product) setProductPreview(ev.product);
+                if (ev.quota_exhausted) setVideoNotice(ev.message);
             }
             if (ev.type === "image_start") {
                 setImageProgress({ current: ev.index, total: ev.total });
@@ -2252,6 +2256,13 @@ function App() {
                         </div>
                     )}
 
+                    {videoNotice && (
+                        <div className="card" style={{ borderColor: "var(--brand-coral)", borderWidth: 2 }}>
+                            <h2 style={{ color: "var(--brand-coral)" }}>Clips paused</h2>
+                            <p style={{ fontSize: "0.9rem", lineHeight: 1.6 }}>{videoNotice.replace(/^.*? — /, "")}</p>
+                        </div>
+                    )}
+
                     {vids.length > 0 && (
                         <div className="card">
                             <h2>Viral Motion Clips</h2>
@@ -2416,6 +2427,13 @@ function App() {
                                         </div>
                                     ))}
                             </div>
+                        </div>
+                    )}
+
+                    {videoNotice && (
+                        <div className="card" style={{ borderColor: "var(--brand-coral)", borderWidth: 2 }}>
+                            <h2 style={{ color: "var(--brand-coral)" }}>Videos paused</h2>
+                            <p style={{ fontSize: "0.9rem", lineHeight: 1.6 }}>{videoNotice.replace(/^.*? — /, "")}</p>
                         </div>
                     )}
 

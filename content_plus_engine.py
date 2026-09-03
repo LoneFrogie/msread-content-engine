@@ -28,7 +28,7 @@ from datetime import datetime
 from google import genai
 
 from sku_engine import fetch_product, generate_sku_images
-from higgsfield_adapter import generate_clip, PRESETS, DEFAULT_PRESET, higgsfield_enabled
+from higgsfield_adapter import generate_clip, PRESETS, DEFAULT_PRESET, higgsfield_enabled, QUOTA_NOTICE
 from trend_catalog import get_trend
 
 logger = logging.getLogger(__name__)
@@ -264,6 +264,7 @@ def _generate_clips(client, brief: dict, product: dict, image_files: list,
                         "total": total, "current": 0})
 
     videos = []
+    quota_exhausted = False
     for i, img in enumerate(image_files):
         shot = shots[i] if i < len(shots) else shots[-1] if shots else {}
         preset = shot.get("preset", DEFAULT_PRESET)
@@ -291,6 +292,13 @@ def _generate_clips(client, brief: dict, product: dict, image_files: list,
                 "filename": result["filename"],
                 "message": f"{scene} done ({result['size_mb']} MB · {result['engine']})",
             })
+        elif result.get("quota_exhausted"):
+            quota_exhausted = True
+            callback("video_done", {
+                "index": i, "total": total, "scene": scene, "success": False,
+                "filename": None, "message": f"{scene} — Veo quota exhausted (skipping the rest)",
+            })
+            break
         else:
             callback("video_done", {
                 "index": i, "total": total, "scene": scene, "success": False,
@@ -299,9 +307,11 @@ def _generate_clips(client, brief: dict, product: dict, image_files: list,
         if i < total - 1:
             time.sleep(4)
 
-    callback("status", {"phase": "videos_done",
-                        "message": f"{len(videos)}/{total} clips generated",
-                        "total_videos": len(videos)})
+    done_msg = f"{len(videos)}/{total} clips generated"
+    if quota_exhausted:
+        done_msg += QUOTA_NOTICE
+    callback("status", {"phase": "videos_done", "message": done_msg,
+                        "total_videos": len(videos), "quota_exhausted": quota_exhausted})
     return videos
 
 

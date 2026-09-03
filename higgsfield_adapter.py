@@ -41,6 +41,16 @@ from PIL import Image as PILImage
 
 logger = logging.getLogger(__name__)
 
+QUOTA_NOTICE = (
+    " — Veo quota exhausted on the Google AI key. Clips resume when the quota "
+    "resets (daily, ~3pm MYT) or after the limit is raised in Google AI Studio."
+)
+
+
+def is_quota_error(e) -> bool:
+    s = str(e)
+    return "429" in s or "RESOURCE_EXHAUSTED" in s
+
 # ── Config (official Higgsfield REST API; all overridable via env) ──
 VEO_MODEL = "veo-3.1-fast-generate-preview"  # proven fallback (matches video_engine)
 HIGGSFIELD_API_BASE = os.getenv("HIGGSFIELD_API_BASE", "https://platform.higgsfield.ai").rstrip("/")
@@ -271,13 +281,25 @@ def generate_clip(client, image_path: Path, out_path: Path, *,
         if _higgsfield_clip(image_bytes, prompt, out_path):
             engine = "higgsfield"
 
-    # Fallback path
+    # Fallback path (a 429 can be a transient per-minute limit — back off first)
     if engine is None:
-        try:
-            if _veo_clip(client, image_bytes, prompt, out_path, api_key=api_key):
-                engine = "veo"
-        except Exception as e:
-            logger.warning("Veo clip failed for %s: %s", out_path.stem, str(e)[:160])
+        for attempt in range(3):
+            try:
+                if _veo_clip(client, image_bytes, prompt, out_path, api_key=api_key):
+                    engine = "veo"
+                break
+            except Exception as e:
+                if is_quota_error(e):
+                    if attempt < 2:
+                        wait = (15, 45)[attempt]
+                        callback("status", {"phase": "generating_videos",
+                                            "message": f"Veo rate-limited — retrying in {wait}s..."})
+                        time.sleep(wait)
+                        continue
+                    logger.warning("Veo quota exhausted for %s", out_path.stem)
+                    return {"success": False, "preset": preset_id, "quota_exhausted": True}
+                logger.warning("Veo clip failed for %s: %s", out_path.stem, str(e)[:160])
+                break
 
     if engine and out_path.exists():
         size_mb = out_path.stat().st_size / (1024 * 1024)
