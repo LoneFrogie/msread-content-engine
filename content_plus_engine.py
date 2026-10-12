@@ -9,7 +9,7 @@ into a launch-ready viral asset:
      — hook, shotlist, on-screen text, MY-localised caption + hashtags, CTA,
        best post time, WHY it beats competitors, KPI to watch
   3. Generate trend-styled, product-faithful hero images (reuse: sku_engine.generate_sku_images)
-  4. Animate each shot into a viral motion clip          (higgsfield_adapter — Higgsfield → Veo)
+  4. Animate each shot into a viral motion clip          (higgsfield_adapter — Higgsfield → Gemini Omni)
   5. Package brief + images + clips, and serve the brief JSON to the UI
 
 Works today on the existing Google key; upgrades to Higgsfield motion + Claude
@@ -258,7 +258,7 @@ def _generate_clips(client, brief: dict, product: dict, image_files: list,
     shots = brief.get("shotlist", [])
     total = len(image_files)
 
-    engine_label = "Higgsfield" if higgsfield_enabled() else "Veo 3.1"
+    engine_label = "Higgsfield" if higgsfield_enabled() else "Gemini Omni"
     callback("status", {"phase": "generating_videos",
                         "message": f"Animating {total} clip(s) via {engine_label}...",
                         "total": total, "current": 0})
@@ -296,7 +296,7 @@ def _generate_clips(client, brief: dict, product: dict, image_files: list,
             quota_exhausted = True
             callback("video_done", {
                 "index": i, "total": total, "scene": scene, "success": False,
-                "filename": None, "message": f"{scene} — Veo quota exhausted (skipping the rest)",
+                "filename": None, "message": f"{scene} — video quota exhausted (skipping the rest)",
             })
             break
         else:
@@ -391,7 +391,7 @@ def run_content_plus_pipeline(api_key: str, product_url: str, trend_id: str,
     image_files = generate_sku_images(client, content, product, creative_brief,
                                       output_dir, callback, avatar_images=[])
 
-    # 4. Motion clips (Higgsfield → Veo)
+    # 4. Motion clips (Higgsfield → Gemini Omni)
     videos = _generate_clips(client, brief, product, image_files, creative_brief,
                              output_dir, api_key, callback)
 
@@ -405,7 +405,7 @@ def run_content_plus_pipeline(api_key: str, product_url: str, trend_id: str,
         "brief": brief,
         "images": image_files,
         "videos": videos,
-        "engine": "higgsfield" if higgsfield_enabled() else "veo",
+        "engine": "higgsfield" if higgsfield_enabled() else "omni",
     }
     (output_dir / "content_plus.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     _package(output_dir, product.get("title", "content_plus"), callback)

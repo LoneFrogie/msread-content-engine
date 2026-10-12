@@ -10,7 +10,7 @@ It is wired as an ADAPTER so the tab works TODAY and upgrades cleanly:
 
   * If a Higgsfield / fal.ai key is configured (HIGGSFIELD_API_KEY or FAL_KEY),
     clips render through Higgsfield motion-preset models.
-  * Otherwise it falls back to the proven Google Veo 3.1 image-to-video call
+  * Otherwise it falls back to Google's Gemini Omni image-to-video model
     (identical to the SKU/Calendar tabs), so nothing is blocked on a key.
 
 Integrates the OFFICIAL Higgsfield REST API (platform.higgsfield.ai, verified
@@ -36,13 +36,14 @@ from pathlib import Path
 from typing import Callable, Optional
 
 import requests
-from google.genai import types
 from PIL import Image as PILImage
+
+from video_engine import render_clip
 
 logger = logging.getLogger(__name__)
 
 QUOTA_NOTICE = (
-    " — Veo quota exhausted on the Google AI key. Clips resume when the quota "
+    " — video quota exhausted on the Google AI key. Clips resume when the quota "
     "resets (daily, ~3pm MYT) or after the limit is raised in Google AI Studio."
 )
 
@@ -52,7 +53,6 @@ def is_quota_error(e) -> bool:
     return "429" in s or "RESOURCE_EXHAUSTED" in s
 
 # ── Config (official Higgsfield REST API; all overridable via env) ──
-VEO_MODEL = "veo-3.1-fast-generate-preview"  # proven fallback (matches video_engine)
 HIGGSFIELD_API_BASE = os.getenv("HIGGSFIELD_API_BASE", "https://platform.higgsfield.ai").rstrip("/")
 HIGGSFIELD_DOP_ENDPOINT = os.getenv("HIGGSFIELD_DOP_ENDPOINT", "/higgsfield-ai/dop/standard")
 
@@ -80,7 +80,7 @@ def higgsfield_enabled() -> bool:
 
 # ── Viral camera-motion presets (Higgsfield's signature) ──
 # Each preset carries a `motion` phrase appended to the generation prompt so the
-# Veo fallback produces the same *kind* of move Higgsfield's named preset does.
+# Google fallback produces the same *kind* of move Higgsfield's named preset does.
 PRESETS = {
     "crash_zoom": {
         "label": "Crash Zoom",
@@ -131,7 +131,7 @@ def preset_motion(preset_id: str) -> str:
 
 
 def _prep_image_bytes(img_path: Path, max_side: int = 1024) -> bytes:
-    """Load + downscale a PNG for generation (Veo/Higgsfield prefer <=1024)."""
+    """Load + downscale a PNG for generation (the video models prefer <=1024)."""
     img = PILImage.open(img_path)
     if max(img.size) > max_side:
         ratio = max_side / max(img.size)
@@ -147,7 +147,7 @@ def _higgsfield_clip(image_bytes: bytes, prompt: str, out_path: Path,
                      timeout: int = 240) -> Optional[Path]:
     """
     Render one motion clip through the OFFICIAL Higgsfield DoP API. Returns the
-    saved path, or None on any failure so the caller falls back to Veo.
+    saved path, or None on any failure so the caller falls back to Google's model.
 
     Flow (docs.higgsfield.ai): the API takes a public image URL, not raw bytes,
     so first upload the still; then enqueue the DoP image-to-video job (camera
@@ -211,46 +211,16 @@ def _higgsfield_clip(image_bytes: bytes, prompt: str, out_path: Path,
         logger.warning("Higgsfield job %s timed out after %ss", request_id, timeout)
         return None
     except Exception as e:
-        logger.warning("Higgsfield path failed (%s) — falling back to Veo.", str(e)[:160])
+        logger.warning("Higgsfield path failed (%s) — falling back to Google's model.", str(e)[:160])
         return None
 
 
-# ── Fallback path: proven Google Veo 3.1 image-to-video ──
+# ── Fallback path: Google's Gemini Omni image-to-video ──
 
-def _veo_clip(client, image_bytes: bytes, prompt: str, out_path: Path,
-              api_key: str = None, max_polls: int = 30) -> Optional[Path]:
-    """The exact working Veo 3.1 image-to-video call used across the app."""
-    operation = client.models.generate_videos(
-        model=VEO_MODEL,
-        source=types.GenerateVideosSource(
-            prompt=prompt,
-            image=types.Image(image_bytes=image_bytes, mime_type="image/png"),
-        ),
-        config=types.GenerateVideosConfig(
-            number_of_videos=1,
-            aspect_ratio="9:16",
-        ),
-    )
-    polls = 0
-    while not operation.done and polls < max_polls:
-        time.sleep(10)
-        operation = client.operations.get(operation)
-        polls += 1
-    if not operation.done:
-        return None
-    if not (operation.result and operation.result.generated_videos):
-        return None
-    video = operation.result.generated_videos[0].video
-    if video.video_bytes:
-        out_path.write_bytes(video.video_bytes)
-    elif video.uri:
-        dl = video.uri + ((f"&key={api_key}" if "?" in video.uri else f"?key={api_key}") if api_key else "")
-        r = requests.get(dl, timeout=120)
-        r.raise_for_status()
-        out_path.write_bytes(r.content)
-    else:
-        return None
-    return out_path
+def _google_clip(image_bytes: bytes, prompt: str, out_path: Path,
+                 api_key: str = None) -> Optional[Path]:
+    """The same image-to-video call the SKU and Calendar tabs use."""
+    return out_path if render_clip(api_key, image_bytes, prompt, out_path) else None
 
 
 def generate_clip(client, image_path: Path, out_path: Path, *,
@@ -259,12 +229,14 @@ def generate_clip(client, image_path: Path, out_path: Path, *,
     """
     Render ONE viral motion clip from a still image.
 
-    Tries Higgsfield first (if a key is set), then falls back to Veo. Returns
+    Tries Higgsfield first (if a key is set), then falls back to Google's model. Returns
     {"filename", "size_mb", "engine", "preset"} on success, {"success": False} else.
     """
     preset = PRESETS.get(preset_id, PRESETS[DEFAULT_PRESET])
     prompt = (
         f"MS. READ — Malaysian women's fashion. {product_title}. "
+        f"In a single continuous shot, no scene cuts. "
+        f"Animate this exact image; keep the garment exactly as shown. "
         f"{scene_prompt} Camera motion: {preset['motion']}. "
         f"Vertical 9:16 social video, premium editorial aesthetic, no text overlays."
     )
@@ -285,20 +257,20 @@ def generate_clip(client, image_path: Path, out_path: Path, *,
     if engine is None:
         for attempt in range(3):
             try:
-                if _veo_clip(client, image_bytes, prompt, out_path, api_key=api_key):
-                    engine = "veo"
+                if _google_clip(image_bytes, prompt, out_path, api_key=api_key):
+                    engine = "omni"
                 break
             except Exception as e:
                 if is_quota_error(e):
                     if attempt < 2:
                         wait = (15, 45)[attempt]
                         callback("status", {"phase": "generating_videos",
-                                            "message": f"Veo rate-limited — retrying in {wait}s..."})
+                                            "message": f"Video model rate-limited — retrying in {wait}s..."})
                         time.sleep(wait)
                         continue
-                    logger.warning("Veo quota exhausted for %s", out_path.stem)
+                    logger.warning("Video quota exhausted for %s", out_path.stem)
                     return {"success": False, "preset": preset_id, "quota_exhausted": True}
-                logger.warning("Veo clip failed for %s: %s", out_path.stem, str(e)[:160])
+                logger.warning("Video clip failed for %s: %s", out_path.stem, str(e)[:160])
                 break
 
     if engine and out_path.exists():

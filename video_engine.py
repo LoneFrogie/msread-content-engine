@@ -1,23 +1,23 @@
 """
-MS. READ Content Engine — Video Generation via Google Veo
-Generates short product video clips (5-8 sec) from AI-generated images.
+MS. READ Content Engine — Video Generation via Google Gemini Omni
+Generates short product video clips (about 10 sec) from AI-generated images.
 Supports image-to-video (product shots → animated clips) for Reels/TikTok.
 """
 
 import time
+import base64
 import logging
 from io import BytesIO
 from pathlib import Path
 from typing import Callable, Optional
 
 import requests
-from google.genai import types
 from PIL import Image as PILImage
 
 logger = logging.getLogger(__name__)
 
 QUOTA_NOTICE = (
-    " — Veo quota exhausted on the Google AI key. Videos resume when the quota "
+    " — video quota exhausted on the Google AI key. Videos resume when the quota "
     "resets (daily, ~3pm MYT) or after the limit is raised in Google AI Studio."
 )
 
@@ -26,11 +26,81 @@ def _is_quota_error(e) -> bool:
     s = str(e)
     return "429" in s or "RESOURCE_EXHAUSTED" in s
 
-# Veo model for image-to-video. Google retired veo-2.0-generate-001 from the
-# Gemini API (only Veo 3.1 preview models remain: standard / fast / lite).
-# "fast" balances speed + cost for short social clips. If this key loses access
-# to it, list models at /v1beta/models and pick an available veo-* model.
-VEO_MODEL = "veo-3.1-fast-generate-preview"
+# Video model. Google shuts down every Veo 3.1 preview model in the Gemini API on
+# 22 Oct 2026 and names gemini-omni-1.1-flash as the replacement. Omni is served
+# through the Interactions API, not the models.generate_videos call Veo used, so
+# render_clip() calls the REST endpoint directly: the SDK's interactions surface
+# is marked experimental and changed its response shape in May 2026.
+VIDEO_MODEL = "gemini-omni-1.1-flash"
+INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
+API_REVISION = "2026-05-20"  # pins the response shape: steps[] -> model_output -> video
+
+
+def _json_or_raise(r):
+    """Return the JSON body, or raise with the HTTP and Google status in the message."""
+    if r.status_code == 200:
+        return r.json()
+    try:
+        err = r.json().get("error", {})
+    except ValueError:
+        err = {}
+    raise RuntimeError(f"{r.status_code} {err.get('status', '')}: "
+                       f"{err.get('message', r.text[:200])}")
+
+
+def render_clip(api_key: str, image_bytes: bytes, prompt: str, out_path: Path,
+                aspect_ratio: str = "9:16", timeout_s: int = 300,
+                on_wait: Optional[Callable[[int], None]] = None) -> bool:
+    """
+    Animate one still into a clip and write it to out_path.
+
+    Starts a background interaction, polls it every 10 s, and saves the video
+    when it completes. Returns True when a file was saved, False on timeout.
+    Raises on an API error; the message carries the HTTP and Google status, so
+    a quota error reads "429 RESOURCE_EXHAUSTED: ...". on_wait(seconds) is
+    called every 30 s while the clip renders.
+    """
+    if not api_key:
+        raise RuntimeError("No Google AI API key for video generation")
+    headers = {"x-goog-api-key": api_key, "Content-Type": "application/json",
+               "Api-Revision": API_REVISION}
+    body = {
+        "model": VIDEO_MODEL,
+        "background": True,
+        "input": [
+            {"type": "image", "mime_type": "image/png",
+             "data": base64.b64encode(image_bytes).decode()},
+            {"type": "text", "text": prompt},
+        ],
+        "response_format": {"type": "video", "aspect_ratio": aspect_ratio},
+        "generation_config": {"video_config": {"task": "image_to_video"}},
+    }
+    job = _json_or_raise(requests.post(INTERACTIONS_URL, headers=headers,
+                                       json=body, timeout=120))
+    started, polls = time.time(), 0
+    while job.get("status") == "in_progress":
+        if time.time() - started > timeout_s:
+            return False
+        time.sleep(10)
+        polls += 1
+        if on_wait and polls % 3 == 0:
+            on_wait(int(time.time() - started))
+        job = _json_or_raise(requests.get(f"{INTERACTIONS_URL}/{job['id']}",
+                                          headers=headers, timeout=120))
+    if job.get("status") != "completed":
+        raise RuntimeError(f"video job {job.get('status')}: "
+                           f"{str(job.get('error') or '')[:200]}")
+    video = next((c for step in job.get("steps", []) if step.get("type") == "model_output"
+                  for c in step.get("content", []) if c.get("type") == "video"), None)
+    if not video:
+        raise RuntimeError("video job completed but returned no video")
+    if video.get("data"):
+        out_path.write_bytes(base64.b64decode(video["data"]))
+    else:
+        d = requests.get(video["uri"], headers={"x-goog-api-key": api_key}, timeout=300)
+        d.raise_for_status()
+        out_path.write_bytes(d.content)
+    return True
 
 # Video prompt templates for different scene types
 VIDEO_SCENE_PROMPTS = {
@@ -77,7 +147,7 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
     Generate short video clips from AI-generated product images.
 
     Takes the best images from the image generation phase and creates
-    5-8 second video clips suitable for Reels/TikTok/Stories.
+    clips of about 10 seconds, suitable for Reels/TikTok/Stories.
 
     Args:
         client: Gemini client
@@ -113,7 +183,7 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
     total = len(selected)
     callback("status", {
         "phase": "generating_videos",
-        "message": f"Generating {total} product video clips (5-8 sec each)...",
+        "message": f"Generating {total} product video clips (about 10 sec each)...",
         "total": total,
         "current": 0,
     })
@@ -127,7 +197,7 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
             callback("video_done", {
                 "index": i, "total": total, "scene": scene_name,
                 "filename": None, "success": False,
-                "message": f"{scene_name} — skipped (Veo quota exhausted)"
+                "message": f"{scene_name} — skipped (video quota exhausted)"
             })
             continue
         scene_type = _classify_scene(scene_name)
@@ -136,6 +206,8 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
         # Build the video prompt
         prompt = (
             f"MS. READ fashion brand. {product_title}. "
+            f"In a single continuous shot, no scene cuts. "
+            f"Animate this exact image; keep the garment exactly as shown. "
             f"{scene_prompt} "
             f"Premium plus-size fashion brand aesthetic."
         )
@@ -155,7 +227,7 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
         try:
             # Load the source image
             img = PILImage.open(img_path)
-            # Resize if needed (Veo works best with reasonable sizes)
+            # Resize if needed (the video model works best with reasonable sizes)
             if max(img.size) > 1024:
                 ratio = 1024 / max(img.size)
                 img = img.resize(
@@ -166,52 +238,32 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
             img.save(buf, format="PNG")
             image_bytes = buf.getvalue()
 
-            # Submit video generation job (image-to-video). A 429 can be a
-            # transient per-minute limit, so back off and retry before giving up.
-            operation = None
+            # Render the clip (image-to-video). A 429 can be a transient
+            # per-minute limit, so back off and retry before giving up.
+            def _tick(secs, n=i + 1):
+                callback("status", {
+                    "phase": "generating_videos",
+                    "message": f"Video {n}/{total} rendering... ({secs}s)",
+                })
+
+            saved = False
             for attempt in range(3):
                 try:
-                    operation = client.models.generate_videos(
-                        model=VEO_MODEL,
-                        source=types.GenerateVideosSource(
-                            prompt=prompt,
-                            image=types.Image(
-                                image_bytes=image_bytes,
-                                mime_type="image/png",
-                            ),
-                        ),
-                        config=types.GenerateVideosConfig(
-                            number_of_videos=1,
-                            aspect_ratio="9:16",  # Vertical for Reels/TikTok
-                        ),
-                    )
+                    saved = render_clip(api_key, image_bytes, prompt, filepath,
+                                        on_wait=_tick)
                     break
                 except Exception as e:
                     if _is_quota_error(e) and attempt < 2:
                         wait = (15, 45)[attempt]
                         callback("status", {
                             "phase": "generating_videos",
-                            "message": f"Veo rate-limited — retrying in {wait}s...",
+                            "message": f"Video model rate-limited — retrying in {wait}s...",
                         })
                         time.sleep(wait)
                         continue
                     raise
 
-            # Poll for completion (videos take 30-120 sec)
-            poll_count = 0
-            max_polls = 30  # 5 minutes max
-            while not operation.done and poll_count < max_polls:
-                time.sleep(10)
-                operation = client.operations.get(operation)
-                poll_count += 1
-
-                if poll_count % 3 == 0:
-                    callback("status", {
-                        "phase": "generating_videos",
-                        "message": f"Video {i + 1}/{total} rendering... ({poll_count * 10}s)",
-                    })
-
-            if not operation.done:
+            if not saved:
                 callback("video_done", {
                     "index": i, "total": total, "scene": scene_name,
                     "filename": None, "success": False,
@@ -219,46 +271,17 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
                 })
                 continue
 
-            # Save the generated video
-            if (operation.result and
-                    operation.result.generated_videos and
-                    len(operation.result.generated_videos) > 0):
-                video = operation.result.generated_videos[0].video
-
-                # Handle both inline bytes and remote URI
-                if video.video_bytes:
-                    with open(filepath, "wb") as f:
-                        f.write(video.video_bytes)
-                elif video.uri:
-                    download_url = video.uri
-                    if api_key and "?" in download_url:
-                        download_url += f"&key={api_key}"
-                    elif api_key:
-                        download_url += f"?key={api_key}"
-                    resp = requests.get(download_url, timeout=120)
-                    resp.raise_for_status()
-                    with open(filepath, "wb") as f:
-                        f.write(resp.content)
-                else:
-                    raise ValueError("Video has no bytes or URI")
-
-                size_mb = filepath.stat().st_size / (1024 * 1024)
-                generated_videos.append({
-                    "scene": scene_name,
-                    "filename": filename,
-                    "size_mb": round(size_mb, 1),
-                })
-                callback("video_done", {
-                    "index": i, "total": total, "scene": scene_name,
-                    "filename": filename, "success": True,
-                    "message": f"{scene_name} done ({size_mb:.1f} MB)"
-                })
-            else:
-                callback("video_done", {
-                    "index": i, "total": total, "scene": scene_name,
-                    "filename": None, "success": False,
-                    "message": f"{scene_name} — No video returned"
-                })
+            size_mb = filepath.stat().st_size / (1024 * 1024)
+            generated_videos.append({
+                "scene": scene_name,
+                "filename": filename,
+                "size_mb": round(size_mb, 1),
+            })
+            callback("video_done", {
+                "index": i, "total": total, "scene": scene_name,
+                "filename": filename, "success": True,
+                "message": f"{scene_name} done ({size_mb:.1f} MB)"
+            })
 
         except Exception as e:
             logger.warning(f"Video generation failed for {scene_name}: {e}")
@@ -267,7 +290,7 @@ def generate_videos(client, image_dir: Path, output_dir: Path,
                 callback("video_done", {
                     "index": i, "total": total, "scene": scene_name,
                     "filename": None, "success": False,
-                    "message": f"{scene_name} — Veo quota exhausted (skipping the rest)"
+                    "message": f"{scene_name} — video quota exhausted (skipping the rest)"
                 })
                 continue
             callback("video_done", {

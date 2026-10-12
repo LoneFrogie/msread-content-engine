@@ -1042,7 +1042,7 @@ function App() {
     const [pdpContent, setPdpContent] = useState(null);
     const [copyState, setCopyState] = useState({});
     const [videos, setVideos] = useState([]);
-    const [videoNotice, setVideoNotice] = useState(null); // e.g. Veo quota exhausted
+    const [videoNotice, setVideoNotice] = useState(null); // e.g. video quota exhausted
     // Idea / Theme Planner state
     const [ideaBrief, setIdeaBrief] = useState(DEFAULT_IDEA_BRIEF);
     const [ideaBrands, setIdeaBrands] = useState(DEFAULT_IDEA_BRANDS);
@@ -1814,7 +1814,7 @@ function App() {
                                     </div>
                                     <div className={`cp-engine-badge ${cpHiggsfield ? "on" : ""}`}>
                                         <span className="dot"></span>
-                                        {cpHiggsfield ? "Higgsfield motion" : "Veo motion engine"}
+                                        {cpHiggsfield ? "Higgsfield motion" : "Gemini Omni motion"}
                                     </div>
                                 </div>
                             </div>
@@ -2236,7 +2236,7 @@ function App() {
                                 <div className="product-title" style={{ fontSize: "1.5rem" }}>{b.concept_name || "Viral Concept"}</div>
                                 <p className="style-desc" style={{ marginTop: "0.4rem" }}>{b.big_idea}</p>
                             </div>
-                            <div className="cp-engine-badge on"><span className="dot"></span>{cpContent.engine === "higgsfield" ? "Higgsfield" : "Veo 3.1"}</div>
+                            <div className="cp-engine-badge on"><span className="dot"></span>{cpContent.engine === "higgsfield" ? "Higgsfield" : "Gemini Omni"}</div>
                         </div>
                         <div className="pdp-actions" style={{ marginTop: "1.2rem" }}>
                             <button className={`btn-copy ${copyState.cp_caption ? "copied" : ""}`}
@@ -2441,7 +2441,7 @@ function App() {
                         <div className="card">
                             <h2>Generated Videos</h2>
                             <p style={{ fontSize: "0.85rem", color: "#888", marginBottom: "1rem" }}>
-                                Short product clips (6 sec, 9:16 vertical) for Reels, TikTok, and Stories
+                                Short product clips (about 10 sec, 9:16 vertical) for Reels, TikTok, and Stories
                             </p>
                             <div className="video-grid">
                                 {videos.map((vid, i) => (
