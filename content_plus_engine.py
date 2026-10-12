@@ -170,7 +170,6 @@ def _brief_via_claude(prompt: str, callback: Callable) -> dict:
             resp = aclient.messages.create(
                 model=CLAUDE_MODEL,
                 max_tokens=4000,
-                temperature=temp,
                 system="You are a precise JSON generator. Output ONLY one valid JSON object — no fences, no commentary.",
                 messages=[{"role": "user", "content": prompt}],
             )

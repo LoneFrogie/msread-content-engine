@@ -133,7 +133,6 @@ def _ideas_via_claude(prompt_text: str, callback: Callable) -> dict:
             resp = aclient.messages.create(
                 model=ANTHROPIC_MODEL,
                 max_tokens=8000,
-                temperature=temp,
                 system="You are a precise JSON generator. Output ONLY a single valid JSON object — no markdown fences, no commentary.",
                 messages=[{"role": "user", "content": prompt_text}],
             )
